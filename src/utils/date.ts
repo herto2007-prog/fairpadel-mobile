@@ -150,18 +150,23 @@ export function getTimeOnlyPY(date: Date | string = new Date()): string {
  */
 export function getDiasRestantes(dateString: string | Date): number {
   if (!dateString) return 0;
-  
-  const target = typeof dateString === 'string' ? new Date(dateString) : dateString;
+
+  // OJO: en React Native (motor Hermes) toLocaleString con timeZone no es confiable
+  // y devolvía NaN. Calculamos los días directo, sin Intl. El celu del jugador
+  // está en hora local de Paraguay, así que usamos su fecha local como "hoy".
+  let targetUTC: number;
+  if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    const [y, m, d] = dateString.split('-').map(Number);
+    targetUTC = Date.UTC(y, m - 1, d);
+  } else {
+    const t = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    targetUTC = Date.UTC(t.getFullYear(), t.getMonth(), t.getDate());
+  }
+
   const now = new Date();
-  
-  // Normalizar ambas fechas a Paraguay
-  const targetPY = new Date(target.toLocaleString('en-US', { timeZone: TIMEZONE }));
-  const nowPY = new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE }));
-  
-  const diffTime = targetPY.getTime() - nowPY.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  return diffDays;
+  const todayUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+
+  return Math.round((targetUTC - todayUTC) / (1000 * 60 * 60 * 24));
 }
 
 /**
