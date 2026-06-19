@@ -1,0 +1,301 @@
+import { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TextInput,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+  StyleSheet,
+} from 'react-native';
+import { router } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
+import {
+  Search,
+  MapPin,
+  CalendarDays,
+  Trophy,
+  ChevronRight,
+  Users,
+  AlertCircle,
+} from 'lucide-react-native';
+import { torneoService, TorneoListItem, TorneoEstadoFiltro } from '../../src/services/torneoService';
+import { colors, spacing, radius } from '../../src/lib/theme';
+import { formatCurrency } from '../../src/utils/currency';
+import { formatDatePYShort } from '../../src/utils/date';
+
+const FILTROS: { key: TorneoEstadoFiltro; label: string }[] = [
+  { key: 'proximos', label: 'Próximos' },
+  { key: 'en-curso', label: 'En curso' },
+  { key: 'finalizados', label: 'Finalizados' },
+];
+
+function useDebounce<T>(value: T, delay = 400): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
+function rangoFechas(inicio: string, fin: string): string {
+  if (inicio === fin) return formatDatePYShort(inicio);
+  return `${formatDatePYShort(inicio)} – ${formatDatePYShort(fin)}`;
+}
+
+function TorneoCard({ torneo }: { torneo: TorneoListItem }) {
+  const abiertas = torneo.categorias?.some((c) => c.inscripcionAbierta);
+  const navegable = !!torneo.slug;
+  return (
+    <TouchableOpacity
+      style={[styles.card, !navegable && styles.cardDisabled]}
+      activeOpacity={navegable ? 0.85 : 1}
+      disabled={!navegable}
+      onPress={() => torneo.slug && router.push(`/torneo/${torneo.slug}`)}
+    >
+      <View style={styles.flyer}>
+        {torneo.flyerUrl ? (
+          <Image source={{ uri: torneo.flyerUrl }} style={styles.flyerImg} resizeMode="cover" />
+        ) : (
+          <Trophy size={34} color={colors.dark300} />
+        )}
+        {abiertas && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>Inscripciones abiertas</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.cardBody}>
+        <Text style={styles.cardTitle} numberOfLines={1}>{torneo.nombre}</Text>
+
+        <View style={styles.metaRow}>
+          <View style={styles.metaItem}>
+            <MapPin size={13} color={colors.gray400} />
+            <Text style={styles.metaText} numberOfLines={1}>{torneo.ciudad}</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <CalendarDays size={13} color={colors.gray400} />
+            <Text style={styles.metaText}>{rangoFechas(torneo.fechaInicio, torneo.fechaFin)}</Text>
+          </View>
+        </View>
+
+        {torneo.categorias?.length > 0 && (
+          <View style={styles.chips}>
+            {torneo.categorias.slice(0, 4).map((c) => (
+              <View key={c.id} style={styles.chip}>
+                <Text style={styles.chipText}>{c.nombre}</Text>
+              </View>
+            ))}
+            {torneo.categorias.length > 4 && (
+              <Text style={styles.chipMore}>+{torneo.categorias.length - 4}</Text>
+            )}
+          </View>
+        )}
+
+        <View style={styles.cardFooter}>
+          <View>
+            <Text style={styles.price}>{formatCurrency(Number(torneo.costoInscripcion))}</Text>
+            <View style={styles.metaItem}>
+              <Users size={12} color={colors.gray500} />
+              <Text style={styles.inscritos}>{torneo.totalInscritos} inscriptos</Text>
+            </View>
+          </View>
+          <ChevronRight size={22} color={colors.gray500} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+export default function TorneosTab() {
+  const [estado, setEstado] = useState<TorneoEstadoFiltro>('proximos');
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
+
+  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
+    queryKey: ['torneos', estado, debouncedSearch],
+    queryFn: () =>
+      torneoService.getPublicTorneos({
+        estado,
+        q: debouncedSearch || undefined,
+        limit: 50,
+      }),
+  });
+
+  const torneos = data?.torneos ?? [];
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Torneos</Text>
+        <Text style={styles.subtitle}>Descubrí y unite a torneos</Text>
+      </View>
+
+      <View style={styles.searchBox}>
+        <Search size={18} color={colors.gray500} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar por nombre o ciudad"
+          placeholderTextColor={colors.gray500}
+          value={search}
+          onChangeText={setSearch}
+          autoCapitalize="none"
+          returnKeyType="search"
+        />
+      </View>
+
+      <View style={styles.segment}>
+        {FILTROS.map((f) => (
+          <TouchableOpacity
+            key={f.key}
+            style={[styles.segItem, estado === f.key && styles.segItemOn]}
+            onPress={() => setEstado(f.key)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.segText, estado === f.key && styles.segTextOn]}>{f.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {isLoading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : isError ? (
+        <View style={styles.centered}>
+          <AlertCircle size={40} color={colors.gray500} />
+          <Text style={styles.emptyTitle}>No pudimos cargar los torneos</Text>
+          <Text style={styles.emptyText}>Revisá tu conexión e intentá de nuevo.</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => refetch()}>
+            <Text style={styles.retryText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={torneos}
+          keyExtractor={(t) => t.id}
+          renderItem={({ item }) => <TorneoCard torneo={item} />}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
+          }
+          ListEmptyComponent={
+            <View style={styles.centered}>
+              <Trophy size={40} color={colors.gray500} />
+              <Text style={styles.emptyTitle}>No hay torneos por acá</Text>
+              <Text style={styles.emptyText}>Probá con otro filtro o volvé más tarde.</Text>
+            </View>
+          }
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl + 16,
+    paddingBottom: spacing.md,
+  },
+  title: { color: colors.white, fontSize: 26, fontWeight: 'bold' },
+  subtitle: { color: colors.gray400, fontSize: 14, marginTop: 2 },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    height: 46,
+  },
+  searchInput: { flex: 1, color: colors.white, fontSize: 15, paddingVertical: 0 },
+  segment: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  segItem: {
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  segItemOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  segText: { color: colors.gray400, fontSize: 13, fontWeight: '600' },
+  segTextOn: { color: colors.white },
+  listContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xl },
+  card: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+  },
+  cardDisabled: { opacity: 0.55 },
+  flyer: {
+    height: 110,
+    backgroundColor: colors.dark100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flyerImg: { width: '100%', height: '100%' },
+  badge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: colors.green500,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  badgeText: { color: '#04130d', fontSize: 11, fontWeight: '800' },
+  cardBody: { padding: spacing.md },
+  cardTitle: { color: colors.white, fontSize: 16, fontWeight: '800' },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: 6 },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaText: { color: colors.gray400, fontSize: 12 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10, alignItems: 'center' },
+  chip: {
+    backgroundColor: colors.dark100,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  chipText: { color: colors.gray400, fontSize: 11, fontWeight: '600' },
+  chipMore: { color: colors.gray500, fontSize: 11, fontWeight: '700' },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  price: { color: colors.white, fontSize: 15, fontWeight: '800' },
+  inscritos: { color: colors.gray500, fontSize: 12, marginTop: 2 },
+  centered: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, paddingHorizontal: spacing.xl },
+  emptyTitle: { color: colors.white, fontSize: 16, fontWeight: '700', marginTop: spacing.md },
+  emptyText: { color: colors.gray400, fontSize: 14, marginTop: 4, textAlign: 'center' },
+  retryBtn: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md - 2,
+    borderRadius: radius.lg,
+  },
+  retryText: { color: colors.white, fontWeight: '700' },
+});
