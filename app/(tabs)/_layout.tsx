@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Trophy, CalendarDays, User } from 'lucide-react-native';
+import { Home, Trophy, TrendingUp, User } from 'lucide-react-native';
 import { colors } from '../../src/lib/theme';
 
 export default function TabsLayout() {
@@ -34,10 +34,10 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="reservas"
+        name="mijuego"
         options={{
-          title: 'Reservas',
-          tabBarIcon: ({ color, size }) => <CalendarDays color={color} size={size - 2} />,
+          title: 'Mi juego',
+          tabBarIcon: ({ color, size }) => <TrendingUp color={color} size={size - 2} />,
         }}
       />
       <Tabs.Screen
