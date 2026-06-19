@@ -1,14 +1,19 @@
 import { Tabs } from 'expo-router';
 import { StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Trophy, CalendarDays, User } from 'lucide-react-native';
 import { colors } from '../../src/lib/theme';
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          { height: 60 + insets.bottom, paddingBottom: 8 + insets.bottom },
+        ],
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.gray500,
         tabBarLabelStyle: styles.tabLabel,
