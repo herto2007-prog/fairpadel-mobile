@@ -23,16 +23,18 @@ export interface LoginResponse {
 }
 
 export interface RegisterData {
+  // Registro mínimo: solo estos 4 son obligatorios (igual que la web).
   email: string;
   password: string;
   nombre: string;
   apellido: string;
-  documento: string;
-  telefono: string;
-  fechaNacimiento: string;
-  genero: 'MASCULINO' | 'FEMENINO';
-  ciudad: string;
-  categoria: string;
+  // El resto se completa just-in-time al inscribirse a un torneo.
+  documento?: string;
+  telefono?: string;
+  fechaNacimiento?: string;
+  genero?: 'MASCULINO' | 'FEMENINO';
+  ciudad?: string;
+  categoria?: string;
   fotoUrl?: string;
   consentCheckboxWhatsapp?: boolean;
 }

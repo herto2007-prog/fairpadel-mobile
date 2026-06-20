@@ -6,86 +6,147 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { router } from 'expo-router';
+import { User, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
+import { useAuth } from '../src/features/auth/context/AuthContext';
 import { authService } from '../src/services/authService';
-import { Button } from '../src/components/ui/Button';
-import { Input } from '../src/components/ui/Input';
 import { colors, spacing, radius } from '../src/lib/theme';
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function Register() {
-  const [form, setForm] = useState({
-    nombre: '',
-    apellido: '',
-    documento: '',
-    email: '',
-    telefono: '',
-    password: '',
-    fechaNacimiento: '',
-    genero: 'MASCULINO' as 'MASCULINO' | 'FEMENINO',
-    ciudad: '',
-    categoria: '',
-  });
-  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  const [form, setForm] = useState({ nombre: '', apellido: '', email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const updateField = (field: string, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
+  const setField = (campo: keyof typeof form, valor: string) =>
+    setForm((prev) => ({ ...prev, [campo]: valor }));
 
-  const handleRegister = async () => {
-    if (!form.nombre || !form.apellido || !form.documento || !form.email || !form.password) {
-      setError('Completa los campos obligatorios');
-      return;
-    }
+  const puedeEnviar =
+    form.nombre.trim().length >= 2 &&
+    form.apellido.trim().length >= 2 &&
+    emailRegex.test(form.email) &&
+    form.password.length >= 6;
 
-    setLoading(true);
+  const handleSubmit = async () => {
+    if (!puedeEnviar || submitting) return;
+    setSubmitting(true);
     setError('');
-
     try {
-      await authService.register(form);
-      router.replace('/login');
+      await authService.register({
+        nombre: form.nombre.trim(),
+        apellido: form.apellido.trim(),
+        email: form.email.trim(),
+        password: form.password,
+      });
+      // Entrar directo (el back permite navegar sin verificar el email aún)
+      await login(form.email.trim(), form.password);
+      router.replace('/(tabs)');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al registrarse');
+      setError(err?.response?.data?.message || 'No se pudo crear la cuenta. Intentá de nuevo.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logoBox}>
-            <Text style={styles.logoIcon}>🏆</Text>
-          </View>
-          <Text style={styles.title}>Crear cuenta</Text>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.head}>
+          <Text style={styles.title}>Creá tu cuenta</Text>
+          <Text style={styles.subtitle}>Es gratis y toma menos de un minuto.</Text>
         </View>
 
         {error ? (
           <View style={styles.errorBox}>
-            <Text style={styles.errorBoxText}>{error}</Text>
+            <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
 
-        <Input label="Nombre *" placeholder="Tu nombre" value={form.nombre} onChangeText={(v) => updateField('nombre', v)} />
-        <Input label="Apellido *" placeholder="Tu apellido" value={form.apellido} onChangeText={(v) => updateField('apellido', v)} />
-        <Input label="Documento *" placeholder="Tu documento" value={form.documento} onChangeText={(v) => updateField('documento', v)} />
-        <Input label="Email *" placeholder="tu@email.com" value={form.email} onChangeText={(v) => updateField('email', v)} keyboardType="email-address" autoCapitalize="none" />
-        <Input label="Teléfono" placeholder="09XX XXX XXX" value={form.telefono} onChangeText={(v) => updateField('telefono', v)} keyboardType="phone-pad" />
-        <Input label="Contraseña *" placeholder="Mínimo 6 caracteres" value={form.password} onChangeText={(v) => updateField('password', v)} secureTextEntry />
-        <Input label="Ciudad" placeholder="Tu ciudad" value={form.ciudad} onChangeText={(v) => updateField('ciudad', v)} />
+        {/* Nombre + Apellido */}
+        <View style={styles.row}>
+          <View style={[styles.inputWrap, styles.half]}>
+            <User size={18} color={colors.gray500} />
+            <TextInput
+              style={styles.input}
+              value={form.nombre}
+              onChangeText={(v) => setField('nombre', v)}
+              placeholder="Nombre"
+              placeholderTextColor={colors.gray500}
+            />
+          </View>
+          <View style={[styles.inputWrap, styles.half]}>
+            <User size={18} color={colors.gray500} />
+            <TextInput
+              style={styles.input}
+              value={form.apellido}
+              onChangeText={(v) => setField('apellido', v)}
+              placeholder="Apellido"
+              placeholderTextColor={colors.gray500}
+            />
+          </View>
+        </View>
 
-        <Button title="Registrarme" onPress={handleRegister} loading={loading} size="lg" />
+        {/* Email */}
+        <View style={[styles.inputWrap, styles.mt]}>
+          <Mail size={18} color={colors.gray500} />
+          <TextInput
+            style={styles.input}
+            value={form.email}
+            onChangeText={(v) => setField('email', v)}
+            placeholder="tu@email.com"
+            placeholderTextColor={colors.gray500}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+          />
+        </View>
+
+        {/* Contraseña */}
+        <View style={[styles.inputWrap, styles.mt]}>
+          <Lock size={18} color={colors.gray500} />
+          <TextInput
+            style={styles.input}
+            value={form.password}
+            onChangeText={(v) => setField('password', v)}
+            placeholder="Contraseña (mínimo 6)"
+            placeholderTextColor={colors.gray500}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity onPress={() => setShowPassword((s) => !s)} hitSlop={8}>
+            {showPassword ? <EyeOff size={18} color={colors.gray500} /> : <Eye size={18} color={colors.gray500} />}
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.submit, !puedeEnviar && styles.submitDisabled]}
+          onPress={handleSubmit}
+          disabled={!puedeEnviar || submitting}
+          activeOpacity={0.85}
+        >
+          {submitting ? (
+            <ActivityIndicator color={colors.white} />
+          ) : (
+            <>
+              <Text style={styles.submitText}>Crear cuenta</Text>
+              <ArrowRight size={18} color={colors.white} />
+            </>
+          )}
+        </TouchableOpacity>
+
+        <Text style={styles.legal}>Al crear tu cuenta aceptás las normativas de FairPadel.</Text>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>¿Ya tenés cuenta? </Text>
-          <TouchableOpacity onPress={() => router.push('/login')}>
-            <Text style={styles.footerLink}>Iniciar sesión</Text>
+          <TouchableOpacity onPress={() => router.replace('/login')}>
+            <Text style={styles.footerLink}>Iniciá sesión</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -94,61 +155,49 @@ export default function Register() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl + 16,
-    paddingBottom: spacing.xl,
-  },
-  logoContainer: {
+  container: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.xl },
+  head: { alignItems: 'center', marginBottom: spacing.lg },
+  title: { color: colors.white, fontSize: 24, fontWeight: 'bold' },
+  subtitle: { color: colors.gray400, fontSize: 14, marginTop: spacing.xs },
+  row: { flexDirection: 'row', gap: spacing.sm },
+  half: { flex: 1 },
+  mt: { marginTop: spacing.sm + 4 },
+  inputWrap: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  logoBox: {
-    width: 64,
-    height: 64,
-    backgroundColor: 'rgba(223, 37, 49, 0.2)',
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md - 4,
+    paddingHorizontal: spacing.md,
+    height: 52,
   },
-  logoIcon: {
-    fontSize: 32,
-  },
-  title: {
-    color: colors.white,
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
+  input: { flex: 1, color: colors.white, fontSize: 15, paddingVertical: 0 },
   errorBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: 'rgba(239,68,68,0.12)',
     borderWidth: 1,
     borderColor: colors.red500,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     padding: spacing.md - 2,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
-  errorBoxText: {
-    color: '#fca5a5',
-    fontSize: 14,
-  },
-  footer: {
+  errorText: { color: '#fca5a5', fontSize: 14 },
+  submit: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: radius.lg,
+    height: 52,
     marginTop: spacing.lg,
   },
-  footerText: {
-    color: colors.gray400,
-  },
-  footerLink: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
+  submitDisabled: { opacity: 0.5 },
+  submitText: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  legal: { color: colors.gray500, fontSize: 12, textAlign: 'center', marginTop: spacing.md },
+  footer: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
+  footerText: { color: colors.gray400 },
+  footerLink: { color: colors.primary, fontWeight: '700' },
 });
