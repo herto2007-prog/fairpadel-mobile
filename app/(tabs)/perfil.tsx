@@ -117,7 +117,7 @@ export default function PerfilTab() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
 
-  const { data: perfil, isLoading, refetch, isRefetching } = useQuery({
+  const { data: perfil, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['mi-perfil'],
     queryFn: perfilService.getMiPerfil,
   });
@@ -136,8 +136,16 @@ export default function PerfilTab() {
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
     >
-      {isLoading || !perfil ? (
+      {isLoading ? (
         <View style={styles.loading}><ActivityIndicator color={colors.primary} /></View>
+      ) : isError || !perfil ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorTitle}>No pudimos cargar tu perfil</Text>
+          <Text style={styles.errorText}>Revisá tu conexión e intentá de nuevo.</Text>
+          <TouchableOpacity style={styles.errorBtn} onPress={() => refetch()} activeOpacity={0.85}>
+            <Text style={styles.errorBtnText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <>
           <View style={styles.head}>
@@ -211,6 +219,14 @@ export default function PerfilTab() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loading: { paddingTop: 60, alignItems: 'center' },
+  errorBox: { paddingTop: 60, alignItems: 'center', paddingHorizontal: spacing.xl },
+  errorTitle: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  errorText: { color: colors.gray400, fontSize: 14, marginTop: 4, textAlign: 'center' },
+  errorBtn: {
+    marginTop: spacing.lg, backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xl, paddingVertical: spacing.md - 2, borderRadius: radius.lg,
+  },
+  errorBtnText: { color: colors.white, fontWeight: '700' },
   head: { alignItems: 'center', paddingHorizontal: spacing.lg },
   avatar: { width: 96, height: 96, borderRadius: 48, borderWidth: 2, borderColor: colors.primary },
   avatarFallback: { backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
