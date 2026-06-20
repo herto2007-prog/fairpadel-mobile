@@ -35,12 +35,18 @@
       "package": "com.fairpadel.app",
       "permissions": [
         "android.permission.INTERNET",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
-
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f6610fe0-8584-45df-8925-63fb52354545"
+      }
+    },
+    "owner": "fairpadel"
   }
 }
