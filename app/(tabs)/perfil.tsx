@@ -1,131 +1,272 @@
-import { View, Text, ScrollView, Image, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+} from 'react-native';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Shield, MapPin, Calendar, Edit3, LogOut, X } from 'lucide-react-native';
 import { useAuth } from '../../src/features/auth/context/AuthContext';
+import { perfilService, PerfilJugador } from '../../src/services/perfilService';
 import { colors, spacing, radius } from '../../src/lib/theme';
 
-export default function PerfilTab() {
-  const { user } = useAuth();
+function Counter({ value, label }: { value: number; label: string }) {
+  return (
+    <View style={styles.counter}>
+      <Text style={styles.counterValue}>{value}</Text>
+      <Text style={styles.counterLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function EditModal({
+  perfil,
+  visible,
+  onClose,
+  onSaved,
+}: {
+  perfil: PerfilJugador;
+  visible: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [bio, setBio] = useState(perfil.bio || '');
+  const [ciudad, setCiudad] = useState(perfil.ciudad || '');
+  const [telefono, setTelefono] = useState(perfil.telefono || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const guardar = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      await perfilService.updatePerfil({ bio: bio.trim(), ciudad: ciudad.trim(), telefono: telefono.trim() });
+      onSaved();
+      onClose();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'No se pudo guardar');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          {user?.fotoUrl ? (
-            <Image source={{ uri: user.fotoUrl }} style={styles.avatarImage} />
-          ) : (
-            <Text style={styles.avatarEmoji}>👤</Text>
-          )}
-        </View>
-        <Text style={styles.name}>{user?.nombre} {user?.apellido}</Text>
-        <Text style={styles.email}>{user?.email}</Text>
-      </View>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalRoot}>
+        <View style={styles.modalCard}>
+          <View style={styles.modalHead}>
+            <Text style={styles.modalTitle}>Editar perfil</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8}><X size={22} color={colors.gray400} /></TouchableOpacity>
+          </View>
 
-      <View style={styles.section}>
-        <View style={styles.infoCard}>
-          <View style={[styles.iconBox, { backgroundColor: `${colors.primary}30` }]}>
-            <Text style={styles.iconEmoji}>🛡️</Text>
-          </View>
-          <View>
-            <Text style={styles.label}>Documento</Text>
-            <Text style={styles.value}>{user?.documento}</Text>
-          </View>
-        </View>
+          {error ? <Text style={styles.modalError}>{error}</Text> : null}
 
-        <View style={styles.infoCard}>
-          <View style={[styles.iconBox, { backgroundColor: `${colors.blue500}30` }]}>
-            <Text style={styles.iconEmoji}>✉️</Text>
-          </View>
-          <View>
-            <Text style={styles.label}>Email</Text>
-            <Text style={styles.value}>{user?.email}</Text>
-          </View>
-        </View>
+          <Text style={styles.modalLabel}>Biografía</Text>
+          <TextInput
+            style={[styles.modalInput, styles.modalTextarea]}
+            value={bio}
+            onChangeText={setBio}
+            placeholder="Contanos sobre vos…"
+            placeholderTextColor={colors.gray500}
+            multiline
+            maxLength={500}
+          />
 
-        <View style={styles.infoCard}>
-          <View style={[styles.iconBox, { backgroundColor: `${colors.amber500}30` }]}>
-            <Text style={styles.iconEmoji}>🏅</Text>
-          </View>
-          <View>
-            <Text style={styles.label}>Categoría</Text>
-            <Text style={styles.value}>{user?.categoria?.nombre || 'Sin categoría'}</Text>
-          </View>
+          <Text style={styles.modalLabel}>Ciudad</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={ciudad}
+            onChangeText={setCiudad}
+            placeholder="Tu ciudad"
+            placeholderTextColor={colors.gray500}
+          />
+
+          <Text style={styles.modalLabel}>Teléfono</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={telefono}
+            onChangeText={setTelefono}
+            placeholder="09XX XXX XXX"
+            placeholderTextColor={colors.gray500}
+            keyboardType="phone-pad"
+          />
+
+          <TouchableOpacity style={styles.modalSave} onPress={guardar} disabled={saving} activeOpacity={0.85}>
+            {saving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.modalSaveText}>Guardar cambios</Text>}
+          </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+export default function PerfilTab() {
+  const insets = useSafeAreaInsets();
+  const { logout } = useAuth();
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+
+  const { data: perfil, isLoading, refetch, isRefetching } = useQuery({
+    queryKey: ['mi-perfil'],
+    queryFn: perfilService.getMiPerfil,
+  });
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/login');
+  };
+
+  const iniciales = perfil ? `${perfil.nombre?.[0] ?? ''}${perfil.apellido?.[0] ?? ''}`.toUpperCase() : '';
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingTop: insets.top + spacing.lg, paddingBottom: spacing.xl }}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+    >
+      {isLoading || !perfil ? (
+        <View style={styles.loading}><ActivityIndicator color={colors.primary} /></View>
+      ) : (
+        <>
+          <View style={styles.head}>
+            {perfil.fotoUrl ? (
+              <Image source={{ uri: perfil.fotoUrl }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarText}>{iniciales}</Text></View>
+            )}
+            <Text style={styles.name}>{perfil.nombre} {perfil.apellido}</Text>
+            {perfil.username ? <Text style={styles.username}>@{perfil.username}</Text> : null}
+
+            <View style={styles.metaRow}>
+              {perfil.categoria && (
+                <View style={styles.metaItem}><Shield size={14} color={colors.blue500} /><Text style={styles.metaText}>{perfil.categoria.nombre}</Text></View>
+              )}
+              <View style={styles.metaItem}><MapPin size={14} color={colors.gray400} /><Text style={styles.metaText}>{perfil.ciudad || 'Sin ciudad'}{perfil.pais ? `, ${perfil.pais}` : ''}</Text></View>
+              {perfil.edad ? (
+                <View style={styles.metaItem}><Calendar size={14} color={colors.gray400} /><Text style={styles.metaText}>{perfil.edad} años</Text></View>
+              ) : null}
+            </View>
+
+            {perfil.bio ? <Text style={styles.bio}>{perfil.bio}</Text> : null}
+
+            <View style={styles.counters}>
+              <Counter value={perfil.seguidores} label="Seguidores" />
+              <View style={styles.counterDivider} />
+              <Counter value={perfil.siguiendo} label="Siguiendo" />
+              <View style={styles.counterDivider} />
+              <Counter value={perfil.stats.torneosJugados} label="Torneos" />
+            </View>
+
+            <TouchableOpacity style={styles.editBtn} onPress={() => setEditing(true)} activeOpacity={0.85}>
+              <Edit3 size={16} color={colors.white} />
+              <Text style={styles.editText}>Editar perfil</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Datos de cuenta */}
+          <View style={styles.section}>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoLabel}>Email</Text>
+              <Text style={styles.infoValue}>{perfil.email}</Text>
+            </View>
+            {perfil.telefono ? (
+              <View style={styles.infoCard}>
+                <Text style={styles.infoLabel}>Teléfono</Text>
+                <Text style={styles.infoValue}>{perfil.telefono}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.section}>
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
+              <LogOut size={18} color={colors.red500} />
+              <Text style={styles.logoutText}>Cerrar sesión</Text>
+            </TouchableOpacity>
+          </View>
+
+          <EditModal
+            perfil={perfil}
+            visible={editing}
+            onClose={() => setEditing(false)}
+            onSaved={() => qc.invalidateQueries({ queryKey: ['mi-perfil'] })}
+          />
+        </>
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
+  container: { flex: 1, backgroundColor: colors.background },
+  loading: { paddingTop: 60, alignItems: 'center' },
+  head: { alignItems: 'center', paddingHorizontal: spacing.lg },
+  avatar: { width: 96, height: 96, borderRadius: 48, borderWidth: 2, borderColor: colors.primary },
+  avatarFallback: { backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: colors.white, fontSize: 32, fontWeight: '800' },
+  name: { color: colors.white, fontSize: 22, fontWeight: 'bold', marginTop: spacing.md },
+  username: { color: colors.gray500, fontSize: 14, marginTop: 2 },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.md, marginTop: spacing.md },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metaText: { color: colors.gray400, fontSize: 13 },
+  bio: { color: colors.gray400, fontSize: 14, textAlign: 'center', marginTop: spacing.md, lineHeight: 20 },
+  counters: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: spacing.lg, marginTop: spacing.lg,
   },
-  header: {
-    alignItems: 'center',
-    paddingTop: spacing.xl + 16,
-    paddingBottom: spacing.lg,
-    paddingHorizontal: spacing.lg,
+  counter: { alignItems: 'center' },
+  counterValue: { color: colors.white, fontSize: 20, fontWeight: '800' },
+  counterLabel: { color: colors.gray500, fontSize: 12, marginTop: 2 },
+  counterDivider: { width: 1, height: 28, backgroundColor: colors.border },
+  editBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    backgroundColor: colors.dark200, borderRadius: radius.lg, paddingVertical: spacing.md - 2,
+    paddingHorizontal: spacing.xl, marginTop: spacing.lg,
   },
-  avatar: {
-    width: 96,
-    height: 96,
-    backgroundColor: colors.dark200,
-    borderRadius: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.primary,
-    marginBottom: spacing.md,
-  },
-  avatarImage: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-  },
-  avatarEmoji: {
-    fontSize: 40,
-  },
-  name: {
-    color: colors.white,
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  email: {
-    color: colors.gray400,
-    fontSize: 14,
-    marginTop: spacing.xs,
-  },
-  section: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md - 4,
-  },
+  editText: { color: colors.white, fontWeight: '700', fontSize: 14 },
+  section: { paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: spacing.sm },
   infoCard: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.xl,
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md - 4,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.lg, padding: spacing.md,
   },
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
+  infoLabel: { color: colors.gray500, fontSize: 12 },
+  infoValue: { color: colors.white, fontSize: 15, fontWeight: '600', marginTop: 2 },
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.lg, paddingVertical: spacing.md,
   },
-  iconEmoji: {
-    fontSize: 16,
+  logoutText: { color: colors.red500, fontWeight: '700', fontSize: 15 },
+  // Modal
+  modalRoot: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalCard: {
+    backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+    padding: spacing.lg, paddingBottom: spacing.xl, borderWidth: 1, borderColor: colors.border,
   },
-  label: {
-    color: colors.gray400,
-    fontSize: 12,
+  modalHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
+  modalTitle: { color: colors.white, fontSize: 18, fontWeight: 'bold' },
+  modalError: { color: '#fca5a5', fontSize: 14, marginBottom: spacing.sm },
+  modalLabel: { color: colors.gray400, fontSize: 13, fontWeight: '600', marginBottom: spacing.sm, marginTop: spacing.md },
+  modalInput: {
+    backgroundColor: colors.dark100, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md - 2,
+    color: colors.white, fontSize: 15,
   },
-  value: {
-    color: colors.white,
-    fontWeight: '600',
-    fontSize: 15,
+  modalTextarea: { height: 90, textAlignVertical: 'top' },
+  modalSave: {
+    backgroundColor: colors.primary, borderRadius: radius.lg, height: 50,
+    alignItems: 'center', justifyContent: 'center', marginTop: spacing.lg,
   },
+  modalSaveText: { color: colors.white, fontSize: 16, fontWeight: '700' },
 });
