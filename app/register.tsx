@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import { User, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { useAuth } from '../src/features/auth/context/AuthContext';
 import { authService } from '../src/services/authService';
+import { GoogleSignInButton } from '../src/features/auth/GoogleSignInButton';
 import { colors, spacing, radius } from '../src/lib/theme';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -61,6 +62,14 @@ export default function Register() {
         <View style={styles.head}>
           <Text style={styles.title}>Creá tu cuenta</Text>
           <Text style={styles.subtitle}>Es gratis y toma menos de un minuto.</Text>
+        </View>
+
+        <GoogleSignInButton onError={setError} />
+
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>o con tu email</Text>
+          <View style={styles.dividerLine} />
         </View>
 
         {error ? (
@@ -160,6 +169,9 @@ const styles = StyleSheet.create({
   head: { alignItems: 'center', marginBottom: spacing.lg },
   title: { color: colors.white, fontSize: 24, fontWeight: 'bold' },
   subtitle: { color: colors.gray400, fontSize: 14, marginTop: spacing.xs },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginVertical: spacing.lg },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.gray500, fontSize: 12 },
   row: { flexDirection: 'row', gap: spacing.sm },
   half: { flex: 1 },
   mt: { marginTop: spacing.sm + 4 },

@@ -70,6 +70,15 @@ export const authService = {
     return result;
   },
 
+  googleLogin: async (idToken: string): Promise<LoginResponse> => {
+    const response = await api.post('/auth/google', { idToken });
+    const result = response.data as LoginResponse;
+    await SecureStore.setItemAsync(TOKEN_KEY, result.access_token);
+    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(result.user));
+    setAuthToken(result.access_token);
+    return result;
+  },
+
   logout: async (): Promise<void> => {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     await SecureStore.deleteItemAsync(USER_KEY);

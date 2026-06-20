@@ -25,7 +25,8 @@
         {
           "photosPermission": "Fairpadel necesita acceso a tus fotos para subir tu avatar."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "android": {
       "adaptiveIcon": {

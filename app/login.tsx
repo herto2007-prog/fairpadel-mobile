@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react-native';
 import { useAuth } from '../src/features/auth/context/AuthContext';
 import { authService } from '../src/services/authService';
+import { GoogleSignInButton } from '../src/features/auth/GoogleSignInButton';
 import { colors, spacing, radius } from '../src/lib/theme';
 
 const LOGO_URL = 'https://res.cloudinary.com/dncjaaybv/image/upload/v1773057029/logo_h4y1tl.png';
@@ -83,6 +84,14 @@ export default function Login() {
 
         {!showForgot ? (
           <>
+            <GoogleSignInButton onError={setError} />
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>o con tu email o cédula</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
             {error ? (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{error}</Text>
@@ -202,6 +211,9 @@ const styles = StyleSheet.create({
   logo: { height: 72, width: 180, marginBottom: spacing.md },
   title: { color: colors.white, fontSize: 24, fontWeight: 'bold' },
   subtitle: { color: colors.gray400, fontSize: 15, marginTop: spacing.xs },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginVertical: spacing.lg },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.gray500, fontSize: 12 },
   label: { color: colors.gray400, fontSize: 13, fontWeight: '600', marginBottom: spacing.sm, marginTop: spacing.md },
   inputWrap: {
     flexDirection: 'row',
