@@ -5,7 +5,6 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
-  Linking,
   StyleSheet,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -21,14 +20,11 @@ import {
   Clock,
   Award,
   AlertCircle,
-  ExternalLink,
 } from 'lucide-react-native';
 import { torneoService } from '../../src/services/torneoService';
 import { colors, spacing, radius } from '../../src/lib/theme';
 import { formatCurrency } from '../../src/utils/currency';
 import { formatDatePYShort, formatDiasRestantes } from '../../src/utils/date';
-
-const WEB_URL = 'https://fairpadel.com';
 
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
@@ -53,7 +49,7 @@ export default function TorneoDetalle() {
   });
 
   const abrirInscripcion = () => {
-    Linking.openURL(`${WEB_URL}/t/${slug}/inscribirse`);
+    router.push(`/inscribirse/${slug}`);
   };
 
   if (isLoading) {
@@ -201,7 +197,6 @@ export default function TorneoDetalle() {
         {torneo.inscripcionesAbiertas ? (
           <TouchableOpacity style={styles.cta} onPress={abrirInscripcion} activeOpacity={0.85}>
             <Text style={styles.ctaText}>Inscribirme</Text>
-            <ExternalLink size={17} color={colors.white} />
           </TouchableOpacity>
         ) : (
           <View style={[styles.cta, styles.ctaDisabled]}>

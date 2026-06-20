@@ -16,6 +16,7 @@ export default function RootLayout() {
             <Stack.Screen name="register" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="torneo/[slug]" />
+            <Stack.Screen name="inscribirse/[slug]" />
           </Stack>
           <StatusBar style="light" />
         </AuthProvider>

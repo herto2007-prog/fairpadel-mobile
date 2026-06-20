@@ -1,0 +1,549 @@
+import { useState, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+} from 'react-native';
+import { useLocalSearchParams, router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ChevronLeft, Search, Check, X, Users, Trophy, CheckCircle2,
+  AlertCircle, UserPlus, Info,
+} from 'lucide-react-native';
+import { torneoService, TorneoDetalle } from '../../src/services/torneoService';
+import { inscripcionService, JugadorBusqueda, CategoriaPermitida, CategoriaCatalogo } from '../../src/services/inscripcionService';
+import { authService } from '../../src/services/authService';
+import { colors, spacing, radius } from '../../src/lib/theme';
+import { formatCurrency } from '../../src/utils/currency';
+
+const CODIGOS_PAIS = ['+595', '+54', '+55', '+598', '+56'];
+
+export default function Inscribirse() {
+  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const insets = useSafeAreaInsets();
+
+  const [loading, setLoading] = useState(true);
+  const [torneo, setTorneo] = useState<TorneoDetalle | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const [catalogo, setCatalogo] = useState<CategoriaCatalogo[]>([]);
+
+  const [step, setStep] = useState(1);
+  const [jugador2, setJugador2] = useState<JugadorBusqueda | null>(null);
+  const [query, setQuery] = useState('');
+  const [resultados, setResultados] = useState<JugadorBusqueda[]>([]);
+  const [buscando, setBuscando] = useState(false);
+  const [formNuevo, setFormNuevo] = useState(false);
+  const [codigoPais, setCodigoPais] = useState('+595');
+  const [j2nr, setJ2nr] = useState({ nombre: '', apellido: '', documento: '', telefono: '', email: '' });
+
+  const [permitidos, setPermitidos] = useState<Record<string, { permitido: boolean; motivo?: string }>>({});
+  const [categoriaSel, setCategoriaSel] = useState('');
+  const [consent, setConsent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  // Just-in-time
+  const [datos, setDatos] = useState({ documento: '', genero: '' as '' | 'MASCULINO' | 'FEMENINO', categoria: '' });
+  const [guardando, setGuardando] = useState(false);
+
+  // Cargar torneo + perfil + catálogo
+  useEffect(() => {
+    if (!slug) return;
+    (async () => {
+      try {
+        const [t, me, cat] = await Promise.all([
+          torneoService.getTorneoBySlug(slug),
+          authService.getMe().then((r) => r.user).catch(() => null),
+          inscripcionService.getCategoriasCatalogo().catch(() => []),
+        ]);
+        setTorneo(t);
+        setUser(me);
+        setCatalogo(cat);
+      } catch {
+        setError('No pudimos cargar el torneo.');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [slug]);
+
+  // Categorías permitidas (regla del back), recarga al cambiar pareja
+  useEffect(() => {
+    if (!torneo) return;
+    inscripcionService
+      .getCategoriasPermitidas(torneo.id, jugador2?.id)
+      .then((cats) => {
+        const map: Record<string, { permitido: boolean; motivo?: string }> = {};
+        for (const c of cats) map[c.id] = { permitido: c.permitido, motivo: c.motivo };
+        setPermitidos(map);
+      })
+      .catch(() => setPermitidos({}));
+  }, [torneo, jugador2]);
+
+  const categoriasFiltradas = useMemo(() => {
+    if (!torneo) return [];
+    return (torneo.categorias || []).filter((c) => c.inscripcionAbierta).sort((a, b) => a.orden - b.orden);
+  }, [torneo]);
+
+  const buscar = async () => {
+    if (!query.trim()) return;
+    setBuscando(true);
+    try {
+      const res = await inscripcionService.buscarPareja(query.trim());
+      setResultados(res);
+      setFormNuevo(res.length === 0);
+    } catch {
+      setResultados([]);
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  const guardarDatos = async () => {
+    const payload: any = {};
+    if (!user?.documento) payload.documento = datos.documento.trim();
+    if (!user?.genero) payload.genero = datos.genero;
+    if (!user?.categoria) payload.categoria = datos.categoria;
+    setGuardando(true);
+    setError('');
+    try {
+      const r = await inscripcionService.completarDatos(payload);
+      if (r?.datosCompletos) {
+        const me = await authService.getMe().then((x) => x.user);
+        setUser(me);
+      } else {
+        setError('Completá todos los campos para continuar.');
+      }
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'No se pudieron guardar los datos.');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const crear = async () => {
+    if (!torneo || !categoriaSel) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const payload: any = { tournamentId: torneo.id, categoryId: categoriaSel, modoPago: 'COMPLETO' };
+      if (jugador2) payload.jugador2Id = jugador2.id;
+      else payload.jugador2NoRegistrado = { ...j2nr, telefono: codigoPais + j2nr.telefono };
+      await inscripcionService.crear(payload);
+      setSuccess(true);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'No se pudo crear la inscripción.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── Estados de pantalla ───────────────────────────────
+  if (loading) {
+    return <View style={[styles.container, styles.centered]}><ActivityIndicator size="large" color={colors.primary} /></View>;
+  }
+  if (!torneo) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <AlertCircle size={40} color={colors.gray500} />
+        <Text style={styles.emptyTitle}>No pudimos cargar el torneo</Text>
+        <TouchableOpacity onPress={() => router.back()}><Text style={styles.link}>Volver</Text></TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (success) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <View style={styles.successIcon}><CheckCircle2 size={48} color={colors.green500} /></View>
+        <Text style={styles.successTitle}>¡Inscripción enviada!</Text>
+        <Text style={styles.successText}>
+          Tu inscripción a {torneo.nombre} quedó registrada. El organizador la confirma y te avisamos.
+        </Text>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => router.replace('/(tabs)')} activeOpacity={0.85}>
+          <Text style={styles.primaryBtnText}>Listo</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Just-in-time: perfil incompleto
+  const perfilIncompleto = !!user && !(user.documento && user.genero && user.categoria);
+  const generoEfectivo = (user?.genero || datos.genero) as '' | 'MASCULINO' | 'FEMENINO';
+
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={8}><ChevronLeft size={24} color={colors.white} /></TouchableOpacity>
+        <Text style={styles.headerTitle} numberOfLines={1}>Inscribirme</Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
+
+        {perfilIncompleto ? (
+          // ─── Completá tus datos ───
+          <View>
+            <Text style={styles.h1}>Completá tus datos</Text>
+            <Text style={styles.sub}>Una sola vez, para poder inscribirte a torneos.</Text>
+
+            {!user.documento && (
+              <>
+                <Text style={styles.label}>Documento / Cédula</Text>
+                <TextInput
+                  style={styles.input}
+                  value={datos.documento}
+                  onChangeText={(v) => setDatos((p) => ({ ...p, documento: v.replace(/\D/g, '') }))}
+                  placeholder="Solo números"
+                  placeholderTextColor={colors.gray500}
+                  keyboardType="number-pad"
+                />
+              </>
+            )}
+
+            {!user.genero && (
+              <>
+                <Text style={styles.label}>Género</Text>
+                <View style={styles.row}>
+                  {(['MASCULINO', 'FEMENINO'] as const).map((g) => (
+                    <TouchableOpacity
+                      key={g}
+                      style={[styles.choice, datos.genero === g && styles.choiceOn]}
+                      onPress={() => setDatos((p) => ({ ...p, genero: g, categoria: '' }))}
+                    >
+                      <Text style={[styles.choiceText, datos.genero === g && styles.choiceTextOn]}>
+                        {g === 'MASCULINO' ? 'Masculino' : 'Femenino'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {!user.categoria && (
+              <>
+                <Text style={styles.label}>Tu categoría</Text>
+                <View style={styles.chipsWrap}>
+                  {catalogo.filter((c) => c.tipo === generoEfectivo).map((c) => (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[styles.chip, datos.categoria === c.nombre && styles.chipOn]}
+                      onPress={() => setDatos((p) => ({ ...p, categoria: c.nombre }))}
+                    >
+                      <Text style={[styles.chipText, datos.categoria === c.nombre && styles.chipTextOn]}>{c.nombre}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {!generoEfectivo && <Text style={styles.hint}>Elegí tu género primero.</Text>}
+                <Text style={styles.hint}>Si recién empezás, elegí la más baja. Ascendés ganando torneos.</Text>
+              </>
+            )}
+
+            <TouchableOpacity style={styles.primaryBtn} onPress={guardarDatos} disabled={guardando} activeOpacity={0.85}>
+              {guardando ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryBtnText}>Guardar y continuar</Text>}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          // ─── Wizard 3 pasos ───
+          <View>
+            {/* Indicador de pasos */}
+            <View style={styles.steps}>
+              {[{ n: 1, t: 'Pareja' }, { n: 2, t: 'Categoría' }, { n: 3, t: 'Confirmar' }].map((s) => (
+                <View key={s.n} style={[styles.stepPill, step >= s.n && styles.stepPillOn]}>
+                  <Text style={[styles.stepText, step >= s.n && styles.stepTextOn]}>{s.t}</Text>
+                </View>
+              ))}
+            </View>
+
+            {step === 1 && (
+              <View>
+                {/* Jugador 1 (vos) */}
+                <View style={styles.playerCard}>
+                  <View style={styles.avatarSm}><Text style={styles.avatarSmText}>{user?.nombre?.[0]}{user?.apellido?.[0]}</Text></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.playerName}>{user?.nombre} {user?.apellido}</Text>
+                    <Text style={styles.playerMeta}>{user?.categoria?.nombre || 'Vos'}</Text>
+                  </View>
+                  <CheckCircle2 size={18} color={colors.green500} />
+                </View>
+
+                <Text style={styles.label}>Jugador 2 (tu pareja)</Text>
+
+                {jugador2 ? (
+                  <View style={[styles.playerCard, { borderColor: colors.green500 }]}>
+                    <View style={styles.avatarSm}><Text style={styles.avatarSmText}>{jugador2.nombre[0]}{jugador2.apellido[0]}</Text></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.playerName}>{jugador2.nombre} {jugador2.apellido}</Text>
+                      <Text style={styles.playerMeta}>{jugador2.categoria?.nombre || 'Sin categoría'}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setJugador2(null)} hitSlop={8}><X size={18} color={colors.gray400} /></TouchableOpacity>
+                  </View>
+                ) : !formNuevo ? (
+                  <>
+                    <View style={styles.searchRow}>
+                      <View style={styles.searchBox}>
+                        <Search size={16} color={colors.gray500} />
+                        <TextInput
+                          style={styles.searchInput}
+                          value={query}
+                          onChangeText={setQuery}
+                          placeholder="Nombre, apellido o documento"
+                          placeholderTextColor={colors.gray500}
+                          onSubmitEditing={buscar}
+                          returnKeyType="search"
+                        />
+                      </View>
+                      <TouchableOpacity style={styles.searchBtn} onPress={buscar} disabled={buscando || !query.trim()}>
+                        {buscando ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.searchBtnText}>Buscar</Text>}
+                      </TouchableOpacity>
+                    </View>
+
+                    {resultados.map((j) => (
+                      <TouchableOpacity key={j.id} style={styles.resultRow} onPress={() => { setJugador2(j); setFormNuevo(false); }}>
+                        <View style={styles.avatarSm}><Text style={styles.avatarSmText}>{j.nombre[0]}{j.apellido[0]}</Text></View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.playerName}>{j.nombre} {j.apellido}</Text>
+                          <Text style={styles.playerMeta}>{j.documento} · {j.categoria?.nombre || 'Sin categoría'}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+
+                    <TouchableOpacity style={styles.inviteBtn} onPress={() => setFormNuevo(true)}>
+                      <UserPlus size={16} color={colors.gray400} />
+                      <Text style={styles.inviteText}>Invitar a un jugador no registrado</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View style={styles.inviteForm}>
+                    <View style={styles.inviteHead}><Info size={13} color={colors.gray400} /><Text style={styles.inviteHeadText}>Invitar nuevo jugador</Text></View>
+                    <View style={styles.row}>
+                      <TextInput style={[styles.input, styles.half]} value={j2nr.nombre} onChangeText={(v) => setJ2nr((p) => ({ ...p, nombre: v }))} placeholder="Nombre" placeholderTextColor={colors.gray500} />
+                      <TextInput style={[styles.input, styles.half]} value={j2nr.apellido} onChangeText={(v) => setJ2nr((p) => ({ ...p, apellido: v }))} placeholder="Apellido" placeholderTextColor={colors.gray500} />
+                    </View>
+                    <TextInput style={[styles.input, styles.mt8]} value={j2nr.documento} onChangeText={(v) => setJ2nr((p) => ({ ...p, documento: v.replace(/\D/g, '') }))} placeholder="Documento" placeholderTextColor={colors.gray500} keyboardType="number-pad" />
+                    <View style={[styles.row, styles.mt8]}>
+                      <View style={styles.codeWrap}>
+                        {CODIGOS_PAIS.map((c) => (
+                          <TouchableOpacity key={c} style={[styles.codePill, codigoPais === c && styles.codePillOn]} onPress={() => setCodigoPais(c)}>
+                            <Text style={[styles.codeText, codigoPais === c && styles.codeTextOn]}>{c}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                    <TextInput style={[styles.input, styles.mt8]} value={j2nr.telefono} onChangeText={(v) => setJ2nr((p) => ({ ...p, telefono: v }))} placeholder="Teléfono" placeholderTextColor={colors.gray500} keyboardType="phone-pad" />
+                    <TextInput style={[styles.input, styles.mt8]} value={j2nr.email} onChangeText={(v) => setJ2nr((p) => ({ ...p, email: v }))} placeholder="Email" placeholderTextColor={colors.gray500} autoCapitalize="none" keyboardType="email-address" />
+                    <TouchableOpacity style={styles.textLink} onPress={() => { setFormNuevo(false); setJ2nr({ nombre: '', apellido: '', documento: '', telefono: '', email: '' }); }}>
+                      <Text style={styles.link}>← Volver a buscar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {step === 2 && (
+              <View>
+                <Text style={styles.label}>Categorías disponibles</Text>
+                {categoriasFiltradas.length === 0 && (
+                  <View style={styles.emptyCard}><Text style={styles.playerMeta}>No hay categorías abiertas en este torneo.</Text></View>
+                )}
+                {categoriasFiltradas.map((cat) => {
+                  const permitido = permitidos[cat.id]?.permitido !== false;
+                  const sel = categoriaSel === cat.id;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[styles.catRow, sel && styles.catRowOn, !permitido && styles.catRowOff]}
+                      disabled={!permitido}
+                      onPress={() => setCategoriaSel(cat.id)}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.playerName}>{cat.nombre}</Text>
+                        <Text style={styles.playerMeta}>{cat.tipo === 'FEMENINO' ? 'Damas' : 'Caballeros'}</Text>
+                        {!permitido && <Text style={styles.notAllowed}>{permitidos[cat.id]?.motivo || 'No disponible para tu perfil'}</Text>}
+                      </View>
+                      {sel && <CheckCircle2 size={18} color={colors.primary} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            {step === 3 && (
+              <View>
+                <View style={styles.summary}>
+                  <View style={styles.summaryHead}>
+                    {torneo.flyerUrl ? <Image source={{ uri: torneo.flyerUrl }} style={styles.summaryFlyer} /> : <View style={[styles.summaryFlyer, styles.summaryFlyerPh]}><Trophy size={20} color={colors.dark300} /></View>}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.playerName} numberOfLines={1}>{torneo.nombre}</Text>
+                      <Text style={styles.playerMeta}>{torneo.ciudad}</Text>
+                    </View>
+                    <Text style={styles.price}>{formatCurrency(Number(torneo.costoInscripcion))}</Text>
+                  </View>
+                  <View style={styles.summaryDivider} />
+                  <View style={styles.row}>
+                    <View style={{ flex: 1 }}><Text style={styles.playerMeta}>Jugador 1</Text><Text style={styles.summaryVal}>{user?.nombre} {user?.apellido}</Text></View>
+                    <View style={{ flex: 1 }}><Text style={styles.playerMeta}>Jugador 2</Text><Text style={styles.summaryVal}>{jugador2 ? `${jugador2.nombre} ${jugador2.apellido}` : `${j2nr.nombre} ${j2nr.apellido}`}</Text></View>
+                  </View>
+                  <View style={styles.summaryDivider} />
+                  <Text style={styles.playerMeta}>Categoría</Text>
+                  <Text style={styles.summaryVal}>{categoriasFiltradas.find((c) => c.id === categoriaSel)?.nombre}</Text>
+                </View>
+
+                <TouchableOpacity style={styles.consent} onPress={() => setConsent((c) => !c)} activeOpacity={0.8}>
+                  <View style={[styles.checkbox, consent && styles.checkboxOn]}>{consent && <Check size={14} color={colors.white} />}</View>
+                  <Text style={styles.consentText}>Confirmo que mi compañero/a me dio su consentimiento para inscribirlo/a. Ambos aceptamos las normativas de FairPadel.</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Barra de navegación inferior del wizard */}
+      {!perfilIncompleto && !success && (
+        <View style={[styles.navBar, { paddingBottom: insets.bottom || spacing.md }]}>
+          <TouchableOpacity onPress={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}>
+            <Text style={[styles.navBack, step === 1 && styles.navDisabled]}>Anterior</Text>
+          </TouchableOpacity>
+          {step < 3 ? (
+            <TouchableOpacity
+              style={[styles.navNext, !canProceed(step, jugador2, formNuevo, j2nr, categoriaSel) && styles.navNextOff]}
+              disabled={!canProceed(step, jugador2, formNuevo, j2nr, categoriaSel)}
+              onPress={() => setStep((s) => s + 1)}
+            >
+              <Text style={styles.navNextText}>Siguiente</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.navNext, (!consent || submitting) && styles.navNextOff]}
+              disabled={!consent || submitting}
+              onPress={crear}
+            >
+              {submitting ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.navNextText}>Confirmar inscripción</Text>}
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </KeyboardAvoidingView>
+  );
+}
+
+function canProceed(step: number, jugador2: any, formNuevo: boolean, j2nr: any, categoriaSel: string): boolean {
+  if (step === 1) {
+    if (jugador2) return true;
+    return formNuevo && !!j2nr.nombre && !!j2nr.apellido && !!j2nr.documento && !!j2nr.email;
+  }
+  if (step === 2) return !!categoriaSel;
+  return true;
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  centered: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  headerTitle: { color: colors.white, fontSize: 17, fontWeight: '700' },
+  scroll: { padding: spacing.lg, paddingBottom: 40 },
+  h1: { color: colors.white, fontSize: 22, fontWeight: '800' },
+  sub: { color: colors.gray400, fontSize: 14, marginTop: 4, marginBottom: spacing.md },
+  label: { color: colors.gray400, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.lg, marginBottom: spacing.sm },
+  input: {
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.md - 2, color: colors.white, fontSize: 15,
+  },
+  half: { flex: 1 },
+  mt8: { marginTop: spacing.sm },
+  row: { flexDirection: 'row', gap: spacing.sm },
+  hint: { color: colors.gray500, fontSize: 12, marginTop: 6 },
+  choice: { flex: 1, paddingVertical: spacing.md - 2, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  choiceOn: { borderColor: colors.primary, backgroundColor: 'rgba(223,37,49,0.12)' },
+  choiceText: { color: colors.gray400, fontWeight: '600' },
+  choiceTextOn: { color: colors.white },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: colors.border },
+  chipOn: { borderColor: colors.primary, backgroundColor: 'rgba(223,37,49,0.12)' },
+  chipText: { color: colors.gray400, fontSize: 13, fontWeight: '600' },
+  chipTextOn: { color: colors.white },
+  // Steps
+  steps: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+  stepPill: { flex: 1, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  stepPillOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  stepText: { color: colors.gray500, fontSize: 12, fontWeight: '700' },
+  stepTextOn: { color: colors.white },
+  // Player cards
+  playerCard: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md - 4,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md - 2,
+  },
+  avatarSm: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
+  avatarSmText: { color: colors.white, fontWeight: '800', fontSize: 14 },
+  playerName: { color: colors.white, fontSize: 14, fontWeight: '600' },
+  playerMeta: { color: colors.gray500, fontSize: 12, marginTop: 1 },
+  searchRow: { flexDirection: 'row', gap: spacing.sm },
+  searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 46 },
+  searchInput: { flex: 1, color: colors.white, fontSize: 14, paddingVertical: 0 },
+  searchBtn: { backgroundColor: colors.dark200, borderRadius: radius.lg, paddingHorizontal: spacing.md, alignItems: 'center', justifyContent: 'center', minWidth: 64 },
+  searchBtnText: { color: colors.white, fontWeight: '700', fontSize: 14 },
+  resultRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md - 4, padding: spacing.sm + 2, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, marginTop: spacing.sm },
+  inviteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed', marginTop: spacing.md },
+  inviteText: { color: colors.gray400, fontSize: 14, fontWeight: '600' },
+  inviteForm: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
+  inviteHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.sm },
+  inviteHeadText: { color: colors.gray400, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
+  codeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  codePill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
+  codePillOn: { borderColor: colors.primary, backgroundColor: 'rgba(223,37,49,0.12)' },
+  codeText: { color: colors.gray400, fontSize: 12, fontWeight: '700' },
+  codeTextOn: { color: colors.white },
+  textLink: { marginTop: spacing.sm, alignSelf: 'flex-start' },
+  link: { color: colors.primary, fontWeight: '700', fontSize: 14 },
+  // Categorías
+  emptyCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, alignItems: 'center' },
+  catRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm },
+  catRowOn: { borderColor: colors.primary, backgroundColor: 'rgba(223,37,49,0.10)' },
+  catRowOff: { opacity: 0.45 },
+  notAllowed: { color: colors.amber500, fontSize: 11, marginTop: 2 },
+  // Summary
+  summary: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
+  summaryHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md - 4 },
+  summaryFlyer: { width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.dark100 },
+  summaryFlyerPh: { alignItems: 'center', justifyContent: 'center' },
+  price: { color: colors.white, fontSize: 16, fontWeight: '800' },
+  summaryDivider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
+  summaryVal: { color: colors.white, fontSize: 14, fontWeight: '600', marginTop: 2 },
+  consent: { flexDirection: 'row', gap: spacing.sm, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, marginTop: spacing.md },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1, borderColor: colors.gray500, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  consentText: { flex: 1, color: colors.gray400, fontSize: 12, lineHeight: 18 },
+  // Nav bar
+  navBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card,
+  },
+  navBack: { color: colors.gray400, fontSize: 15, fontWeight: '600' },
+  navDisabled: { opacity: 0.3 },
+  navNext: { backgroundColor: colors.primary, borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md - 2, minWidth: 120, alignItems: 'center' },
+  navNextOff: { opacity: 0.4 },
+  navNextText: { color: colors.white, fontWeight: '800', fontSize: 15 },
+  // Misc
+  errorBox: { backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: colors.red500, borderRadius: radius.md, padding: spacing.md - 2, marginBottom: spacing.md },
+  errorText: { color: '#fca5a5', fontSize: 14 },
+  emptyTitle: { color: colors.white, fontSize: 16, fontWeight: '700', marginTop: spacing.md, marginBottom: spacing.sm },
+  primaryBtn: { backgroundColor: colors.primary, borderRadius: radius.lg, height: 50, alignItems: 'center', justifyContent: 'center', marginTop: spacing.xl },
+  primaryBtnText: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  successIcon: { width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(16,185,129,0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg },
+  successTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginBottom: spacing.sm },
+  successText: { color: colors.gray400, fontSize: 14, textAlign: 'center', lineHeight: 21 },
+});
