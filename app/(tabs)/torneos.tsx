@@ -22,6 +22,7 @@ import {
   AlertCircle,
 } from 'lucide-react-native';
 import { torneoService, TorneoListItem, TorneoEstadoFiltro } from '../../src/services/torneoService';
+import { Skeleton } from '../../src/components/ui/Skeleton';
 import { colors, spacing, radius } from '../../src/lib/theme';
 import { formatCurrency } from '../../src/utils/currency';
 import { formatDatePYShort } from '../../src/utils/date';
@@ -111,6 +112,22 @@ function TorneoCard({ torneo }: { torneo: TorneoListItem }) {
   );
 }
 
+function TorneoCardSkeleton() {
+  return (
+    <View style={styles.card}>
+      <Skeleton style={{ height: 110, borderRadius: 0 }} />
+      <View style={styles.cardBody}>
+        <Skeleton style={{ height: 16, width: '70%' }} />
+        <Skeleton style={{ height: 12, width: '50%', marginTop: 10 }} />
+        <View style={styles.cardFooter}>
+          <Skeleton style={{ height: 16, width: 90 }} />
+          <Skeleton style={{ height: 22, width: 22, borderRadius: 11 }} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function TorneosTab() {
   const [estado, setEstado] = useState<TorneoEstadoFiltro>('proximos');
   const [search, setSearch] = useState('');
@@ -162,8 +179,8 @@ export default function TorneosTab() {
       </View>
 
       {isLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
+        <View style={styles.listContent}>
+          {[0, 1, 2, 3].map((i) => <TorneoCardSkeleton key={i} />)}
         </View>
       ) : isError ? (
         <View style={styles.centered}>
