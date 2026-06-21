@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Trophy, TrendingUp, User } from 'lucide-react-native';
+import { Home, Trophy, Users, TrendingUp, User } from 'lucide-react-native';
 import { colors } from '../../src/lib/theme';
 
 export default function TabsLayout() {
@@ -31,6 +31,13 @@ export default function TabsLayout() {
         options={{
           title: 'Torneos',
           tabBarIcon: ({ color, size }) => <Trophy color={color} size={size - 2} />,
+        }}
+      />
+      <Tabs.Screen
+        name="comunidad"
+        options={{
+          title: 'Comunidad',
+          tabBarIcon: ({ color, size }) => <Users color={color} size={size - 2} />,
         }}
       />
       <Tabs.Screen

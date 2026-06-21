@@ -87,6 +87,12 @@ export const perfilService = {
     return res.data.data;
   },
 
+  /** GET /users/profile/:id — perfil público de otro jugador */
+  getPerfilJugador: async (userId: string): Promise<PerfilJugador> => {
+    const res = await api.get(`/users/profile/${userId}`);
+    return res.data.data;
+  },
+
   /** PUT /users/profile — actualiza datos de texto del perfil */
   updatePerfil: async (data: {
     bio?: string;
