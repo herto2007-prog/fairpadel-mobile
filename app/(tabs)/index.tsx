@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   Modal,
   StyleSheet,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -22,10 +22,12 @@ import {
   Activity,
   CalendarClock,
   ChevronRight,
+  Bell,
   X,
 } from 'lucide-react-native';
 import { useAuth } from '../../src/features/auth/context/AuthContext';
 import { jugadorService, FeedItem, NodoAgenda, Agenda } from '../../src/services/jugadorService';
+import { notificacionService } from '../../src/services/notificacionService';
 import { PalaHeart } from '../../src/components/icons/PalaHeart';
 import { colors, spacing, radius } from '../../src/lib/theme';
 
@@ -184,6 +186,11 @@ export default function HomeTab() {
 
   const agendaQ = useQuery({ queryKey: ['mi-agenda'], queryFn: jugadorService.getMiAgenda });
   const feedQ = useQuery({ queryKey: ['feed'], queryFn: jugadorService.getFeed });
+  const notifQ = useQuery({ queryKey: ['notif-count'], queryFn: notificacionService.getNoLeidasCount });
+
+  // Al volver al Inicio (ej. tras ver/marcar notificaciones), refrescar el badge.
+  useFocusEffect(useCallback(() => { notifQ.refetch(); }, []));
+  const noLeidas = notifQ.data ?? 0;
 
   const setFeedItem = (id: string, patch: Partial<FeedItem>) => {
     qc.setQueryData<FeedItem[]>(['feed'], (prev) =>
@@ -240,7 +247,15 @@ export default function HomeTab() {
           <Text style={styles.greeting}>Buenas,</Text>
           <Text style={styles.name} numberOfLines={1}>{user?.nombre} {user?.apellido}</Text>
         </View>
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/notificaciones')} activeOpacity={0.8}>
+          <Bell size={18} color={colors.gray400} />
+          {noLeidas > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{noLeidas > 9 ? '9+' : noLeidas}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.iconBtn, { marginLeft: spacing.sm }]} onPress={handleLogout} activeOpacity={0.8}>
           <LogOut size={18} color={colors.gray400} />
         </TouchableOpacity>
       </View>
@@ -298,7 +313,7 @@ const styles = StyleSheet.create({
   },
   greeting: { color: colors.gray400, fontSize: 14 },
   name: { color: colors.white, fontSize: 24, fontWeight: 'bold', marginTop: 2 },
-  logoutBtn: {
+  iconBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -308,6 +323,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  badge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: colors.background,
+  },
+  badgeText: { color: colors.white, fontSize: 10, fontWeight: '800' },
   loading: { paddingTop: 60, alignItems: 'center' },
   // Hero próximo partido
   hero: {
