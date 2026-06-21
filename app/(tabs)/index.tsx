@@ -1,15 +1,18 @@
+import { useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
+  Image,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Modal,
   StyleSheet,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   LogOut,
   MapPin,
@@ -19,9 +22,11 @@ import {
   Activity,
   CalendarClock,
   ChevronRight,
+  X,
 } from 'lucide-react-native';
 import { useAuth } from '../../src/features/auth/context/AuthContext';
 import { jugadorService, FeedItem, NodoAgenda, Agenda } from '../../src/services/jugadorService';
+import { PalaHeart } from '../../src/components/icons/PalaHeart';
 import { colors, spacing, radius } from '../../src/lib/theme';
 
 const FEED_CONFIG: Record<string, { Icon: any; color: string; bg: string }> = {
@@ -79,29 +84,128 @@ function HeroVacio() {
   );
 }
 
-function FeedRow({ item }: { item: FeedItem }) {
+function FeedRow({
+  item,
+  onToggle,
+  onVerQuienes,
+}: {
+  item: FeedItem;
+  onToggle: () => void;
+  onVerQuienes: () => void;
+}) {
   const c = FEED_CONFIG[item.tipo] || { Icon: Activity, color: colors.gray400, bg: colors.dark100 };
   const { Icon } = c;
+  const count = item.reaccionesCount ?? 0;
   return (
-    <View style={styles.feedRow}>
-      <View style={[styles.feedIcon, { backgroundColor: c.bg }]}>
-        <Icon size={18} color={c.color} />
+    <View style={styles.feedCard}>
+      <View style={styles.feedTop}>
+        <View style={[styles.feedIcon, { backgroundColor: c.bg }]}>
+          <Icon size={18} color={c.color} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.feedTitle} numberOfLines={2}>{item.titulo}</Text>
+          {item.detalle ? <Text style={styles.feedDetail} numberOfLines={1}>{item.detalle}</Text> : null}
+        </View>
+        <Text style={styles.feedTime}>{hace(item.fecha)}</Text>
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.feedTitle} numberOfLines={2}>{item.titulo}</Text>
-        {item.detalle ? <Text style={styles.feedDetail} numberOfLines={1}>{item.detalle}</Text> : null}
-      </View>
-      <Text style={styles.feedTime}>{hace(item.fecha)}</Text>
+
+      {item.reaccionable && (
+        <View style={styles.reaccionBar}>
+          <TouchableOpacity style={styles.likeBtn} onPress={onToggle} activeOpacity={0.7} hitSlop={6}>
+            <PalaHeart size={20} filled={!!item.yaReaccione} />
+            <Text style={[styles.likeText, item.yaReaccione && styles.likeTextOn]}>Me gusta</Text>
+          </TouchableOpacity>
+          {count > 0 &&
+            (item.esDueno ? (
+              <TouchableOpacity onPress={onVerQuienes} hitSlop={6}>
+                <Text style={styles.count}>{count}</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.count}>{count}</Text>
+            ))}
+        </View>
+      )}
     </View>
+  );
+}
+
+function ReaccionadoresModal({ item, onClose }: { item: FeedItem | null; onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['reaccionadores', item?.id],
+    queryFn: () => jugadorService.getReaccionadores(item!.id),
+    enabled: !!item,
+  });
+  const lista = data ?? [];
+  return (
+    <Modal visible={!!item} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalRoot}>
+        <View style={styles.modalCard}>
+          <View style={styles.modalHead}>
+            <Text style={styles.modalTitle}>A quiénes les gustó</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8}><X size={22} color={colors.gray400} /></TouchableOpacity>
+          </View>
+          {isLoading ? (
+            <View style={{ paddingVertical: spacing.xl }}><ActivityIndicator color={colors.primary} /></View>
+          ) : lista.length === 0 ? (
+            <Text style={styles.modalEmpty}>Todavía nadie reaccionó.</Text>
+          ) : (
+            <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+              {lista.map((u) => {
+                const ini = `${u.nombre?.[0] ?? ''}${u.apellido?.[0] ?? ''}`.toUpperCase();
+                return (
+                  <TouchableOpacity
+                    key={u.id}
+                    style={styles.personRow}
+                    activeOpacity={0.8}
+                    onPress={() => { onClose(); router.push(`/jugador/${u.id}`); }}
+                  >
+                    {u.fotoUrl ? (
+                      <Image source={{ uri: u.fotoUrl }} style={styles.personAvatar} />
+                    ) : (
+                      <View style={[styles.personAvatar, styles.personFallback]}><Text style={styles.personIni}>{ini}</Text></View>
+                    )}
+                    <Text style={styles.personName}>{u.nombre} {u.apellido}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
+      </View>
+    </Modal>
   );
 }
 
 export default function HomeTab() {
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
+  const qc = useQueryClient();
+  const [modalItem, setModalItem] = useState<FeedItem | null>(null);
 
   const agendaQ = useQuery({ queryKey: ['mi-agenda'], queryFn: jugadorService.getMiAgenda });
   const feedQ = useQuery({ queryKey: ['feed'], queryFn: jugadorService.getFeed });
+
+  const setFeedItem = (id: string, patch: Partial<FeedItem>) => {
+    qc.setQueryData<FeedItem[]>(['feed'], (prev) =>
+      (prev ?? []).map((it) => (it.id === id ? { ...it, ...patch } : it)),
+    );
+  };
+
+  const toggleReaccion = async (item: FeedItem) => {
+    const queLike = !item.yaReaccione;
+    const base = item.reaccionesCount ?? 0;
+    // optimista
+    setFeedItem(item.id, { yaReaccione: queLike, reaccionesCount: Math.max(0, base + (queLike ? 1 : -1)) });
+    try {
+      const r = queLike
+        ? await jugadorService.reaccionar(item.id)
+        : await jugadorService.quitarReaccion(item.id);
+      setFeedItem(item.id, { yaReaccione: r.yaReaccione, reaccionesCount: r.count });
+    } catch {
+      // revertir
+      setFeedItem(item.id, { yaReaccione: item.yaReaccione, reaccionesCount: base });
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -118,6 +222,7 @@ export default function HomeTab() {
   const cargando = agendaQ.isLoading || feedQ.isLoading;
 
   return (
+    <>
     <ScrollView
       style={styles.container}
       contentContainerStyle={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.xl }}
@@ -156,7 +261,14 @@ export default function HomeTab() {
 
             {feedItems.length > 0 ? (
               <View style={{ gap: spacing.sm }}>
-                {feedItems.map((it) => <FeedRow key={it.id} item={it} />)}
+                {feedItems.map((it) => (
+                  <FeedRow
+                    key={it.id}
+                    item={it}
+                    onToggle={() => toggleReaccion(it)}
+                    onVerQuienes={() => setModalItem(it)}
+                  />
+                ))}
               </View>
             ) : (
               <View style={styles.feedEmpty}>
@@ -171,6 +283,8 @@ export default function HomeTab() {
         </>
       )}
     </ScrollView>
+    <ReaccionadoresModal item={modalItem} onClose={() => setModalItem(null)} />
+    </>
   );
 }
 
@@ -236,17 +350,38 @@ const styles = StyleSheet.create({
   section: { marginTop: spacing.xl, paddingHorizontal: spacing.lg },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
   sectionTitle: { color: colors.white, fontSize: 18, fontWeight: 'bold' },
-  feedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md - 4,
+  feedCard: {
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
     padding: spacing.md - 2,
   },
+  feedTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md - 4 },
   feedIcon: { width: 40, height: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  reaccionBar: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    marginTop: spacing.md - 2, paddingTop: spacing.sm,
+    borderTopWidth: 1, borderTopColor: colors.border,
+  },
+  likeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  likeText: { color: colors.gray400, fontSize: 13, fontWeight: '600' },
+  likeTextOn: { color: colors.primary },
+  count: { color: colors.gray400, fontSize: 13, fontWeight: '700' },
+  // Modal reaccionadores
+  modalRoot: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalCard: {
+    backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+    padding: spacing.lg, paddingBottom: spacing.xl, borderWidth: 1, borderColor: colors.border,
+  },
+  modalHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
+  modalTitle: { color: colors.white, fontSize: 18, fontWeight: 'bold' },
+  modalEmpty: { color: colors.gray400, fontSize: 14, paddingVertical: spacing.lg, textAlign: 'center' },
+  personRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md - 2, paddingVertical: spacing.sm },
+  personAvatar: { width: 40, height: 40, borderRadius: 20 },
+  personFallback: { backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
+  personIni: { color: colors.white, fontSize: 15, fontWeight: '800' },
+  personName: { color: colors.white, fontSize: 15, fontWeight: '600' },
   feedTitle: { color: colors.white, fontSize: 14, fontWeight: '600' },
   feedDetail: { color: colors.gray500, fontSize: 12, marginTop: 2 },
   feedTime: { color: colors.gray500, fontSize: 11 },

@@ -13,6 +13,18 @@ export interface FeedItem {
   titulo: string;
   detalle: string;
   link: string | null;
+  // Reacciones (las calcula el back)
+  reaccionable?: boolean;
+  reaccionesCount?: number;
+  yaReaccione?: boolean;
+  esDueno?: boolean; // puede ver quiénes reaccionaron
+}
+
+export interface Reaccionador {
+  id: string;
+  nombre: string;
+  apellido: string;
+  fotoUrl: string | null;
 }
 
 export interface NodoAgenda {
@@ -50,6 +62,24 @@ export const jugadorService = {
   /** GET /jugador/mi-agenda — próximo partido + camino si gana/pierde */
   getMiAgenda: async (): Promise<Agenda[]> => {
     const res = await api.get('/jugador/mi-agenda');
+    return res.data?.data ?? [];
+  },
+
+  /** POST /jugador/feed/:id/reaccion — "Me gusta" (idempotente) */
+  reaccionar: async (feedItemId: string): Promise<{ count: number; yaReaccione: boolean }> => {
+    const res = await api.post(`/jugador/feed/${feedItemId}/reaccion`);
+    return res.data?.data;
+  },
+
+  /** DELETE /jugador/feed/:id/reaccion — quitar "Me gusta" */
+  quitarReaccion: async (feedItemId: string): Promise<{ count: number; yaReaccione: boolean }> => {
+    const res = await api.delete(`/jugador/feed/${feedItemId}/reaccion`);
+    return res.data?.data;
+  },
+
+  /** GET /jugador/feed/:id/reacciones — quiénes reaccionaron (solo el dueño) */
+  getReaccionadores: async (feedItemId: string): Promise<Reaccionador[]> => {
+    const res = await api.get(`/jugador/feed/${feedItemId}/reacciones`);
     return res.data?.data ?? [];
   },
 };
