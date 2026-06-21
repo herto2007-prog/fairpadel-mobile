@@ -14,8 +14,8 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronLeft, Search, Check, X, Users, Trophy, CheckCircle2,
-  AlertCircle, UserPlus, Info,
+  ChevronLeft, Search, Check, X, Trophy, CheckCircle2,
+  AlertCircle, AlertTriangle, UserPlus, Info, TrendingUp,
 } from 'lucide-react-native';
 import { torneoService, TorneoDetalle } from '../../src/services/torneoService';
 import { inscripcionService, JugadorBusqueda, CategoriaPermitida, CategoriaCatalogo } from '../../src/services/inscripcionService';
@@ -92,6 +92,14 @@ export default function Inscribirse() {
     if (!torneo) return [];
     return (torneo.categorias || []).filter((c) => c.inscripcionAbierta).sort((a, b) => a.orden - b.orden);
   }, [torneo]);
+
+  // Nivel del jugador (orden). Menor orden = categoría superior.
+  const playerOrden = useMemo<number | null>(() => {
+    const c = user?.categoria;
+    if (!c) return null;
+    const enCatalogo = catalogo.find((x) => x.id === c.id)?.orden;
+    return typeof enCatalogo === 'number' ? enCatalogo : (typeof c.orden === 'number' ? c.orden : null);
+  }, [user, catalogo]);
 
   const buscar = async () => {
     if (!query.trim()) return;
@@ -351,26 +359,52 @@ export default function Inscribirse() {
 
             {step === 2 && (
               <View>
-                <Text style={styles.label}>Categorías disponibles</Text>
+                {/* Banner motivador */}
+                <View style={styles.banner}>
+                  <TrendingUp size={16} color={colors.primary} />
+                  <Text style={styles.bannerText}>
+                    Podés jugar en tu categoría o animarte a una superior. ¡Subir de nivel se logra compitiendo!
+                  </Text>
+                </View>
+
+                <Text style={styles.label}>Categorías del torneo</Text>
                 {categoriasFiltradas.length === 0 && (
                   <View style={styles.emptyCard}><Text style={styles.playerMeta}>No hay categorías abiertas en este torneo.</Text></View>
                 )}
                 {categoriasFiltradas.map((cat) => {
-                  const permitido = permitidos[cat.id]?.permitido !== false;
+                  const info = permitidos[cat.id];
+                  const permitido = info?.permitido !== false;
                   const sel = categoriaSel === cat.id;
+                  const esSuperior = playerOrden != null && cat.orden < playerOrden;
                   return (
                     <TouchableOpacity
                       key={cat.id}
                       style={[styles.catRow, sel && styles.catRowOn, !permitido && styles.catRowOff]}
                       disabled={!permitido}
                       onPress={() => setCategoriaSel(cat.id)}
+                      activeOpacity={0.85}
                     >
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.playerName}>{cat.nombre}</Text>
-                        <Text style={styles.playerMeta}>{cat.tipo === 'FEMENINO' ? 'Damas' : 'Caballeros'}</Text>
-                        {!permitido && <Text style={styles.notAllowed}>{permitidos[cat.id]?.motivo || 'No disponible para tu perfil'}</Text>}
+                        <View style={styles.catTitleRow}>
+                          <Text style={styles.playerName}>{cat.nombre}</Text>
+                          <Text style={styles.playerMeta}>{cat.tipo === 'FEMENINO' ? 'Damas' : 'Caballeros'}</Text>
+                        </View>
+
+                        {permitido ? (
+                          <View style={[styles.statusBadge, styles.badgeGreen]}>
+                            <CheckCircle2 size={13} color="#34d399" />
+                            <Text style={styles.badgeGreenText}>
+                              {esSuperior ? 'Podés inscribirte · ¡buen desafío, subís de nivel!' : 'Podés inscribirte'}
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={[styles.statusBadge, styles.badgeYellow]}>
+                            <AlertTriangle size={13} color={colors.amber500} />
+                            <Text style={styles.badgeYellowText}>{info?.motivo || 'No disponible para tu categoría'}</Text>
+                          </View>
+                        )}
                       </View>
-                      {sel && <CheckCircle2 size={18} color={colors.primary} />}
+                      {sel && <CheckCircle2 size={20} color={colors.primary} />}
                     </TouchableOpacity>
                   );
                 })}
@@ -513,8 +547,19 @@ const styles = StyleSheet.create({
   emptyCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, alignItems: 'center' },
   catRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm },
   catRowOn: { borderColor: colors.primary, backgroundColor: 'rgba(223,37,49,0.10)' },
-  catRowOff: { opacity: 0.45 },
-  notAllowed: { color: colors.amber500, fontSize: 11, marginTop: 2 },
+  catRowOff: { opacity: 0.7 },
+  catTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  banner: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: 'rgba(223,37,49,0.10)', borderWidth: 1, borderColor: 'rgba(223,37,49,0.25)',
+    borderRadius: radius.lg, padding: spacing.md - 2, marginBottom: spacing.md,
+  },
+  bannerText: { flex: 1, color: colors.gray400, fontSize: 12, lineHeight: 17 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8, alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
+  badgeGreen: { backgroundColor: 'rgba(16,185,129,0.14)' },
+  badgeGreenText: { color: '#34d399', fontSize: 11, fontWeight: '700', flexShrink: 1 },
+  badgeYellow: { backgroundColor: 'rgba(245,158,11,0.14)' },
+  badgeYellowText: { color: colors.amber500, fontSize: 11, fontWeight: '600', flexShrink: 1 },
   // Summary
   summary: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
   summaryHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md - 4 },
