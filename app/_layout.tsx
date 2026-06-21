@@ -2,8 +2,20 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
+import * as Notifications from 'expo-notifications';
 import { AuthProvider } from '../src/features/auth/context/AuthContext';
 import { queryClient } from '../src/lib/queryClient';
+
+// Mostrar la notificación aunque la app esté abierta (foreground).
+Notifications.setNotificationHandler({
+  handleNotification: async () =>
+    ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    } as any),
+});
 
 export default function RootLayout() {
   return (

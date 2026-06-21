@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { authService, LoginResponse } from '../../../services/authService';
 import { loadToken } from '../../../services/api';
+import { registrarPush, desregistrarPush } from '../../../services/pushService';
 
 interface AuthContextType {
   user: LoginResponse['user'] | null;
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedUser = await authService.getUser();
       if (storedUser) {
         setUser(storedUser);
+        registrarPush(); // registrar token de push (no bloquea)
       }
       setIsLoading(false);
     };
@@ -36,14 +38,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (documento: string, password: string) => {
     const response = await authService.login({ documento, password });
     setUser(response.user);
+    registrarPush();
   };
 
   const loginWithGoogle = async (idToken: string) => {
     const response = await authService.googleLogin(idToken);
     setUser(response.user);
+    registrarPush();
   };
 
   const logout = async () => {
+    await desregistrarPush();
     await authService.logout();
     setUser(null);
   };
