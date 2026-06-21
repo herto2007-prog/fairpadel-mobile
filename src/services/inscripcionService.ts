@@ -48,6 +48,38 @@ export interface CrearInscripcionPayload {
   jugador2NoRegistrado?: Jugador2NoRegistrado;
 }
 
+export type InscripcionEstado =
+  | 'PENDIENTE_PAGO'
+  | 'PENDIENTE_CONFIRMACION'
+  | 'CONFIRMADA'
+  | 'CANCELADA';
+
+export interface JugadorInscripcion {
+  id: string;
+  nombre: string;
+  apellido: string;
+  documento?: string;
+}
+
+export interface MiInscripcion {
+  id: string;
+  estado: InscripcionEstado;
+  jugador1Id: string;
+  jugador2Id?: string | null;
+  jugador1?: JugadorInscripcion | null;
+  jugador2?: JugadorInscripcion | null;
+  tournament?: {
+    id: string;
+    nombre: string;
+    ciudad?: string | null;
+    slug?: string | null;
+    fechaInicio?: string | null;
+    fechaFin?: string | null;
+  } | null;
+  category?: { id: string; nombre: string } | null;
+  createdAt?: string;
+}
+
 // ═══════════════════════════════════════════════════════
 // SERVICIO — todos requieren auth (token inyectado por interceptor)
 // ═══════════════════════════════════════════════════════
@@ -81,6 +113,18 @@ export const inscripcionService = {
   /** POST /inscripciones/public — crea la inscripción */
   crear: async (payload: CrearInscripcionPayload) => {
     const res = await api.post('/inscripciones/public', payload);
+    return res.data;
+  },
+
+  /** GET /inscripciones/my — inscripciones donde soy jugador 1 o pareja */
+  getMisInscripciones: async (): Promise<MiInscripcion[]> => {
+    const res = await api.get('/inscripciones/my');
+    return Array.isArray(res.data) ? res.data : res.data?.inscripciones ?? [];
+  },
+
+  /** PATCH /inscripciones/:id/cancelar — cancelar (solo jugador 1) */
+  cancelar: async (id: string, motivo?: string) => {
+    const res = await api.patch(`/inscripciones/${id}/cancelar`, motivo ? { motivo } : {});
     return res.data;
   },
 };

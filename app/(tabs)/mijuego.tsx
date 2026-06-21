@@ -3,7 +3,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   StyleSheet,
 } from 'react-native';
@@ -24,6 +23,7 @@ import {
 } from 'lucide-react-native';
 import { perfilService, NivelLogro } from '../../src/services/perfilService';
 import { jugadorService, NodoAgenda } from '../../src/services/jugadorService';
+import { Skeleton } from '../../src/components/ui/Skeleton';
 import { colors, spacing, radius } from '../../src/lib/theme';
 
 const NIVEL_COLOR: Record<NivelLogro, string> = {
@@ -43,6 +43,32 @@ function StatCard({ icon, value, label }: { icon: React.ReactNode; value: string
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
+  );
+}
+
+function MiJuegoSkeleton() {
+  return (
+    <>
+      <View style={styles.statsGrid}>
+        {[0, 1, 2, 3].map((i) => (
+          <View key={i} style={styles.statCard}>
+            <Skeleton style={{ width: 36, height: 36, borderRadius: radius.md }} />
+            <Skeleton style={{ height: 24, width: 50, marginTop: spacing.sm }} />
+            <Skeleton style={{ height: 11, width: '80%', marginTop: 6 }} />
+          </View>
+        ))}
+      </View>
+      {[0, 1].map((i) => (
+        <View key={i} style={styles.section}>
+          <Skeleton style={{ height: 16, width: 120, marginBottom: spacing.md }} />
+          <View style={styles.card}>
+            <Skeleton style={{ height: 26, width: '45%' }} />
+            <Skeleton style={{ height: 13, width: '70%', marginTop: spacing.md }} />
+            <Skeleton style={{ height: 13, width: '55%', marginTop: spacing.sm }} />
+          </View>
+        </View>
+      ))}
+    </>
   );
 }
 
@@ -88,9 +114,7 @@ export default function MiJuegoTab() {
       </View>
 
       {perfilQ.isLoading ? (
-        <View style={styles.loading}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
+        <MiJuegoSkeleton />
       ) : !perfil ? (
         <View style={styles.section}>
           <Text style={styles.emptyText}>No pudimos cargar tus datos. Deslizá para reintentar.</Text>

@@ -17,11 +17,12 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import { Shield, MapPin, Calendar, Edit3, LogOut, X, Camera, KeyRound, Bell, ChevronRight } from 'lucide-react-native';
+import { Shield, MapPin, Calendar, Edit3, LogOut, X, Camera, KeyRound, Bell, ChevronRight, Ticket } from 'lucide-react-native';
 import { useAuth } from '../../src/features/auth/context/AuthContext';
 import { perfilService, PerfilJugador } from '../../src/services/perfilService';
 import { PasswordModal } from '../../src/features/perfil/PasswordModal';
 import { NotificacionesModal } from '../../src/features/perfil/NotificacionesModal';
+import { Skeleton } from '../../src/components/ui/Skeleton';
 import { colors, spacing, radius } from '../../src/lib/theme';
 
 function Counter({ value, label }: { value: number; label: string }) {
@@ -114,6 +115,26 @@ function EditModal({
   );
 }
 
+function PerfilSkeleton() {
+  return (
+    <View style={styles.head}>
+      <Skeleton style={{ width: 96, height: 96, borderRadius: 48 }} />
+      <Skeleton style={{ height: 22, width: 180, marginTop: spacing.md }} />
+      <Skeleton style={{ height: 14, width: 110, marginTop: spacing.sm }} />
+      <View style={[styles.metaRow, { justifyContent: 'center' }]}>
+        <Skeleton style={{ height: 14, width: 80 }} />
+        <Skeleton style={{ height: 14, width: 90 }} />
+      </View>
+      <View style={styles.counters}>
+        <Skeleton style={{ height: 44, width: 60 }} />
+        <Skeleton style={{ height: 44, width: 60 }} />
+        <Skeleton style={{ height: 44, width: 60 }} />
+      </View>
+      <Skeleton style={{ height: 46, width: '60%', borderRadius: radius.lg, marginTop: spacing.lg }} />
+    </View>
+  );
+}
+
 export default function PerfilTab() {
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
@@ -158,7 +179,7 @@ export default function PerfilTab() {
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
     >
       {isLoading ? (
-        <View style={styles.loading}><ActivityIndicator color={colors.primary} /></View>
+        <PerfilSkeleton />
       ) : isError || !perfil ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorTitle}>No pudimos cargar tu perfil</Text>
@@ -221,6 +242,16 @@ export default function PerfilTab() {
                 <Text style={styles.infoValue}>{perfil.telefono}</Text>
               </View>
             ) : null}
+          </View>
+
+          {/* Mi actividad */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Mi actividad</Text>
+            <TouchableOpacity style={styles.configRow} onPress={() => router.push('/inscripciones')} activeOpacity={0.8}>
+              <View style={styles.configIcon}><Ticket size={18} color={colors.gray400} /></View>
+              <Text style={styles.configText}>Mis inscripciones</Text>
+              <ChevronRight size={20} color={colors.gray500} />
+            </TouchableOpacity>
           </View>
 
           {/* Configuración */}
