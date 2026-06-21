@@ -15,7 +15,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft, Search, Check, X, Trophy, CheckCircle2,
-  AlertCircle, AlertTriangle, UserPlus, Info, TrendingUp,
+  AlertCircle, AlertTriangle, UserPlus, Info, TrendingUp, Clock,
 } from 'lucide-react-native';
 import { torneoService, TorneoDetalle } from '../../src/services/torneoService';
 import { inscripcionService, JugadorBusqueda, CategoriaPermitida, CategoriaCatalogo } from '../../src/services/inscripcionService';
@@ -51,7 +51,9 @@ export default function Inscribirse() {
   const [query, setQuery] = useState('');
   const [resultados, setResultados] = useState<JugadorBusqueda[]>([]);
   const [buscando, setBuscando] = useState(false);
+  const [buscado, setBuscado] = useState(false);
   const [formNuevo, setFormNuevo] = useState(false);
+  const [esInvitacion, setEsInvitacion] = useState(false);
   const [codigoPais, setCodigoPais] = useState('+595');
   const [j2nr, setJ2nr] = useState({ nombre: '', apellido: '', documento: '', telefono: '', email: '' });
 
@@ -116,14 +118,15 @@ export default function Inscribirse() {
   const buscar = async () => {
     if (!query.trim()) return;
     setBuscando(true);
+    setFormNuevo(false);
     try {
       const res = await inscripcionService.buscarPareja(query.trim());
       setResultados(res);
-      setFormNuevo(res.length === 0);
     } catch {
       setResultados([]);
     } finally {
       setBuscando(false);
+      setBuscado(true);
     }
   };
 
@@ -157,7 +160,8 @@ export default function Inscribirse() {
       const payload: any = { tournamentId: torneo.id, categoryId: categoriaSel, modoPago: 'COMPLETO' };
       if (jugador2) payload.jugador2Id = jugador2.id;
       else payload.jugador2NoRegistrado = { ...j2nr, telefono: codigoPais + j2nr.telefono };
-      await inscripcionService.crear(payload);
+      const r = await inscripcionService.crear(payload);
+      setEsInvitacion(!!r?.inscripcion?.requiereInvitacion);
       setSuccess(true);
     } catch (e: any) {
       setError(e?.response?.data?.message || 'No se pudo crear la inscripción.');
@@ -183,10 +187,14 @@ export default function Inscribirse() {
   if (success) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <View style={styles.successIcon}><CheckCircle2 size={48} color={colors.green500} /></View>
-        <Text style={styles.successTitle}>¡Inscripción enviada!</Text>
+        <View style={[styles.successIcon, esInvitacion && styles.successIconReserva]}>
+          {esInvitacion ? <Clock size={46} color={colors.amber500} /> : <CheckCircle2 size={48} color={colors.green500} />}
+        </View>
+        <Text style={styles.successTitle}>{esInvitacion ? '¡Lugar reservado!' : '¡Inscripción confirmada!'}</Text>
         <Text style={styles.successText}>
-          Tu inscripción a {torneo.nombre} quedó registrada. El organizador la confirma y te avisamos.
+          {esInvitacion
+            ? `Le enviamos una invitación a ${j2nr.nombre || 'tu compañero/a'} por email. Tu lugar en ${torneo.nombre} queda reservado y se confirma cuando se sume y acepte.`
+            : `Tu lugar en ${torneo.nombre} quedó reservado. ¡Nos vemos en la cancha!`}
         </Text>
         <TouchableOpacity style={styles.primaryBtn} onPress={() => router.replace('/(tabs)')} activeOpacity={0.85}>
           <Text style={styles.primaryBtnText}>Listo</Text>
@@ -309,7 +317,8 @@ export default function Inscribirse() {
                   </View>
                 ) : !formNuevo ? (
                   <>
-                    <View style={styles.searchRow}>
+                    <Text style={styles.hint}>Buscá a tu compañero/a por nombre o cédula.</Text>
+                    <View style={[styles.searchRow, styles.mt8]}>
                       <View style={styles.searchBox}>
                         <Search size={16} color={colors.gray500} />
                         <TextInput
@@ -337,14 +346,32 @@ export default function Inscribirse() {
                       </TouchableOpacity>
                     ))}
 
-                    <TouchableOpacity style={styles.inviteBtn} onPress={() => setFormNuevo(true)}>
-                      <UserPlus size={16} color={colors.gray400} />
-                      <Text style={styles.inviteText}>Invitar a un jugador no registrado</Text>
-                    </TouchableOpacity>
+                    {/* Invitar SOLO aparece tras una búsqueda sin resultados (contextual) */}
+                    {buscado && !buscando && resultados.length === 0 && (
+                      <View style={styles.noResult}>
+                        <Text style={styles.noResultTitle}>No encontramos a nadie con esos datos</Text>
+                        <Text style={styles.noResultText}>¿Tu compañero/a todavía no está en FairPadel? Invitalo/a y le llega un aviso para sumarse.</Text>
+                        <TouchableOpacity style={styles.inviteBtn} onPress={() => setFormNuevo(true)}>
+                          <UserPlus size={16} color={colors.gray400} />
+                          <Text style={styles.inviteText}>Invitar a {query.trim() || 'tu compañero/a'}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {/* Si hubo resultados pero ninguno es, ofrecer invitar de forma discreta */}
+                    {resultados.length > 0 && (
+                      <TouchableOpacity style={styles.subtleLink} onPress={() => setFormNuevo(true)}>
+                        <Text style={styles.subtleLinkText}>¿No es ninguno? Invitá a alguien que no tiene cuenta</Text>
+                      </TouchableOpacity>
+                    )}
                   </>
                 ) : (
                   <View style={styles.inviteForm}>
-                    <View style={styles.inviteHead}><Info size={13} color={colors.gray400} /><Text style={styles.inviteHeadText}>Invitar nuevo jugador</Text></View>
+                    <View style={styles.inviteHead}><Info size={13} color={colors.gray400} /><Text style={styles.inviteHeadText}>Invitar a tu compañero/a</Text></View>
+                    <Text style={styles.inviteNote}>Le enviamos una invitación por email. Tu lugar queda <Text style={styles.inviteNoteStrong}>reservado</Text> y se confirma cuando se sume y acepte.</Text>
+                    <TouchableOpacity style={styles.inviteBack} onPress={() => { setFormNuevo(false); }}>
+                      <ChevronLeft size={14} color={colors.gray400} /><Text style={styles.link}>Volver a buscar</Text>
+                    </TouchableOpacity>
                     <View style={styles.row}>
                       <TextInput style={[styles.input, styles.half]} value={j2nr.nombre} onChangeText={(v) => setJ2nr((p) => ({ ...p, nombre: v }))} placeholder="Nombre" placeholderTextColor={colors.gray500} />
                       <TextInput style={[styles.input, styles.half]} value={j2nr.apellido} onChangeText={(v) => setJ2nr((p) => ({ ...p, apellido: v }))} placeholder="Apellido" placeholderTextColor={colors.gray500} />
@@ -361,9 +388,6 @@ export default function Inscribirse() {
                     </View>
                     <TextInput style={[styles.input, styles.mt8]} value={j2nr.telefono} onChangeText={(v) => setJ2nr((p) => ({ ...p, telefono: v }))} placeholder="Teléfono" placeholderTextColor={colors.gray500} keyboardType="phone-pad" />
                     <TextInput style={[styles.input, styles.mt8]} value={j2nr.email} onChangeText={(v) => setJ2nr((p) => ({ ...p, email: v }))} placeholder="Email" placeholderTextColor={colors.gray500} autoCapitalize="none" keyboardType="email-address" />
-                    <TouchableOpacity style={styles.textLink} onPress={() => { setFormNuevo(false); setJ2nr({ nombre: '', apellido: '', documento: '', telefono: '', email: '' }); }}>
-                      <Text style={styles.link}>← Volver a buscar</Text>
-                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -548,6 +572,14 @@ const styles = StyleSheet.create({
   inviteForm: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
   inviteHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.sm },
   inviteHeadText: { color: colors.gray400, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
+  inviteNote: { color: colors.gray400, fontSize: 12, lineHeight: 17, marginTop: 8 },
+  inviteNoteStrong: { color: colors.amber500, fontWeight: '700' },
+  inviteBack: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: spacing.sm, marginBottom: spacing.sm, alignSelf: 'flex-start' },
+  noResult: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.md, alignItems: 'center' },
+  noResultTitle: { color: colors.white, fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  noResultText: { color: colors.gray400, fontSize: 12, lineHeight: 17, textAlign: 'center', marginTop: 4, marginBottom: spacing.md },
+  subtleLink: { alignSelf: 'center', marginTop: spacing.md, paddingVertical: spacing.sm },
+  subtleLinkText: { color: colors.gray400, fontSize: 13, textDecorationLine: 'underline' },
   codeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   codePill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
   codePillOn: { borderColor: colors.primary, backgroundColor: 'rgba(223,37,49,0.12)' },
@@ -601,6 +633,7 @@ const styles = StyleSheet.create({
   primaryBtn: { backgroundColor: colors.primary, borderRadius: radius.lg, height: 50, alignItems: 'center', justifyContent: 'center', marginTop: spacing.xl },
   primaryBtnText: { color: colors.white, fontSize: 16, fontWeight: '700' },
   successIcon: { width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(16,185,129,0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg },
+  successIconReserva: { backgroundColor: 'rgba(245,158,11,0.15)' },
   successTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginBottom: spacing.sm },
   successText: { color: colors.gray400, fontSize: 14, textAlign: 'center', lineHeight: 21 },
 });
