@@ -16,9 +16,12 @@ import {
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Shield, MapPin, Calendar, Edit3, LogOut, X } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Shield, MapPin, Calendar, Edit3, LogOut, X, Camera, KeyRound, Bell, ChevronRight } from 'lucide-react-native';
 import { useAuth } from '../../src/features/auth/context/AuthContext';
 import { perfilService, PerfilJugador } from '../../src/services/perfilService';
+import { PasswordModal } from '../../src/features/perfil/PasswordModal';
+import { NotificacionesModal } from '../../src/features/perfil/NotificacionesModal';
 import { colors, spacing, radius } from '../../src/lib/theme';
 
 function Counter({ value, label }: { value: number; label: string }) {
@@ -116,6 +119,9 @@ export default function PerfilTab() {
   const { logout } = useAuth();
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const [pwModal, setPwModal] = useState(false);
+  const [notifModal, setNotifModal] = useState(false);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
 
   const { data: perfil, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['mi-perfil'],
@@ -125,6 +131,21 @@ export default function PerfilTab() {
   const handleLogout = async () => {
     await logout();
     router.replace('/login');
+  };
+
+  const cambiarFoto = async () => {
+    if (subiendoFoto) return;
+    const res = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.7 });
+    if (res.canceled || !res.assets?.[0]?.uri) return;
+    setSubiendoFoto(true);
+    try {
+      await perfilService.updateFoto(res.assets[0].uri);
+      qc.invalidateQueries({ queryKey: ['mi-perfil'] });
+    } catch {
+      // silencioso; el avatar queda como estaba
+    } finally {
+      setSubiendoFoto(false);
+    }
   };
 
   const iniciales = perfil ? `${perfil.nombre?.[0] ?? ''}${perfil.apellido?.[0] ?? ''}`.toUpperCase() : '';
@@ -149,11 +170,16 @@ export default function PerfilTab() {
       ) : (
         <>
           <View style={styles.head}>
-            {perfil.fotoUrl ? (
-              <Image source={{ uri: perfil.fotoUrl }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarText}>{iniciales}</Text></View>
-            )}
+            <TouchableOpacity onPress={cambiarFoto} activeOpacity={0.85} disabled={subiendoFoto}>
+              {perfil.fotoUrl ? (
+                <Image source={{ uri: perfil.fotoUrl }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarText}>{iniciales}</Text></View>
+              )}
+              <View style={styles.camBadge}>
+                {subiendoFoto ? <ActivityIndicator size="small" color={colors.white} /> : <Camera size={15} color={colors.white} />}
+              </View>
+            </TouchableOpacity>
             <Text style={styles.name}>{perfil.nombre} {perfil.apellido}</Text>
             {perfil.username ? <Text style={styles.username}>@{perfil.username}</Text> : null}
 
@@ -197,6 +223,21 @@ export default function PerfilTab() {
             ) : null}
           </View>
 
+          {/* Configuración */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Configuración</Text>
+            <TouchableOpacity style={styles.configRow} onPress={() => setNotifModal(true)} activeOpacity={0.8}>
+              <View style={styles.configIcon}><Bell size={18} color={colors.gray400} /></View>
+              <Text style={styles.configText}>Notificaciones</Text>
+              <ChevronRight size={20} color={colors.gray500} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.configRow} onPress={() => setPwModal(true)} activeOpacity={0.8}>
+              <View style={styles.configIcon}><KeyRound size={18} color={colors.gray400} /></View>
+              <Text style={styles.configText}>Cambiar contraseña</Text>
+              <ChevronRight size={20} color={colors.gray500} />
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.section}>
             <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
               <LogOut size={18} color={colors.red500} />
@@ -209,6 +250,13 @@ export default function PerfilTab() {
             visible={editing}
             onClose={() => setEditing(false)}
             onSaved={() => qc.invalidateQueries({ queryKey: ['mi-perfil'] })}
+          />
+          <PasswordModal visible={pwModal} onClose={() => setPwModal(false)} />
+          <NotificacionesModal
+            perfil={perfil}
+            visible={notifModal}
+            onClose={() => setNotifModal(false)}
+            onUpdate={() => qc.invalidateQueries({ queryKey: ['mi-perfil'] })}
           />
         </>
       )}
@@ -231,6 +279,19 @@ const styles = StyleSheet.create({
   avatar: { width: 96, height: 96, borderRadius: 48, borderWidth: 2, borderColor: colors.primary },
   avatarFallback: { backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.white, fontSize: 32, fontWeight: '800' },
+  camBadge: {
+    position: 'absolute', bottom: 0, right: 0, width: 30, height: 30, borderRadius: 15,
+    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: colors.background,
+  },
+  sectionLabel: { color: colors.gray500, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: spacing.sm },
+  configRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md - 4,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm,
+  },
+  configIcon: { width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.dark100, alignItems: 'center', justifyContent: 'center' },
+  configText: { flex: 1, color: colors.white, fontSize: 15, fontWeight: '600' },
   name: { color: colors.white, fontSize: 22, fontWeight: 'bold', marginTop: spacing.md },
   username: { color: colors.gray500, fontSize: 14, marginTop: 2 },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.md, marginTop: spacing.md },
