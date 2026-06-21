@@ -54,6 +54,16 @@ export type InscripcionEstado =
   | 'CONFIRMADA'
   | 'CANCELADA';
 
+/** Estado de la categoría del torneo (TournamentCategory) */
+export type CategoriaEstado =
+  | 'INSCRIPCIONES_ABIERTAS'
+  | 'INSCRIPCIONES_CERRADAS'
+  | 'FIXTURE_BORRADOR'
+  | 'SORTEO_REALIZADO'
+  | 'EN_CURSO'
+  | 'FINALIZADA'
+  | 'CANCELADA';
+
 export interface JugadorInscripcion {
   id: string;
   nombre: string;
@@ -78,6 +88,10 @@ export interface MiInscripcion {
   } | null;
   category?: { id: string; nombre: string } | null;
   createdAt?: string;
+  /** Calculado por el back: ¿puede ESTE jugador auto-cancelar? (solo jugador 1, antes del sorteo) */
+  puedeCancelar?: boolean;
+  /** Estado del cuadro de la categoría del torneo */
+  categoriaEstado?: CategoriaEstado | null;
 }
 
 // ═══════════════════════════════════════════════════════

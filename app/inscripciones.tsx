@@ -68,7 +68,10 @@ function InscripcionCard({
   const cfg = ESTADO[ins.estado];
   const pareja = ins.jugador2 ? `${ins.jugador2.nombre} ${ins.jugador2.apellido}`.trim() : null;
   const fecha = ymd(ins.tournament?.fechaInicio);
-  const puedeCancelar = esJugador1 && ins.estado !== 'CANCELADA';
+  // El back decide si se puede (solo jugador 1, antes del sorteo). El front refleja.
+  const puedeCancelar = !!ins.puedeCancelar;
+  // Soy el dueño de la inscripción pero ya no puedo bajarme solo (cuadro armado).
+  const avisarOrganizador = esJugador1 && !puedeCancelar && ins.estado !== 'CANCELADA';
 
   return (
     <View style={styles.card}>
@@ -122,6 +125,12 @@ function InscripcionCard({
           </TouchableOpacity>
         )}
       </View>
+
+      {avisarOrganizador && (
+        <Text style={styles.nota}>
+          El cuadro ya está armado. Si necesitás bajarte, contactá al organizador.
+        </Text>
+      )}
     </View>
   );
 }
@@ -256,6 +265,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.border,
   },
   cancelText: { color: colors.red500, fontSize: 13, fontWeight: '700' },
+  nota: { color: colors.gray500, fontSize: 12, fontStyle: 'italic', marginTop: spacing.sm, lineHeight: 17 },
   centered: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, paddingHorizontal: spacing.xl },
   emptyTitle: { color: colors.white, fontSize: 16, fontWeight: '700', marginTop: spacing.md, textAlign: 'center' },
   emptyText: { color: colors.gray400, fontSize: 14, marginTop: 4, textAlign: 'center' },
