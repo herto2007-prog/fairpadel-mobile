@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "381086845403",
+    "project_id": "fairpadel-499400",
+    "storage_bucket": "fairpadel-499400.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:381086845403:android:5088716a0549501c437ffe",
+        "android_client_info": {
+          "package_name": "com.fairpadel.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "381086845403-s7clgdbodand7p5qlfeok6a2lgmglohq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVc2VE9awjTzoXCgicFpIE3g3BigAG9H8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "381086845403-s7clgdbodand7p5qlfeok6a2lgmglohq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
