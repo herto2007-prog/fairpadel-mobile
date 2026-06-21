@@ -25,6 +25,18 @@ import { formatCurrency } from '../../src/utils/currency';
 
 const CODIGOS_PAIS = ['+595', '+54', '+55', '+598', '+56'];
 
+// Avatar que muestra la foto del jugador si existe; si no, sus iniciales.
+function Avatar({ uri, ini }: { uri?: string | null; ini: string }) {
+  if (uri) return <Image source={{ uri }} style={avStyles.av} />;
+  return <View style={[avStyles.av, avStyles.fallback]}><Text style={avStyles.text}>{ini}</Text></View>;
+}
+
+const avStyles = StyleSheet.create({
+  av: { width: 40, height: 40, borderRadius: 20 },
+  fallback: { backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
+  text: { color: colors.white, fontWeight: '800', fontSize: 14 },
+});
+
 export default function Inscribirse() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const insets = useSafeAreaInsets();
@@ -276,7 +288,7 @@ export default function Inscribirse() {
               <View>
                 {/* Jugador 1 (vos) */}
                 <View style={styles.playerCard}>
-                  <View style={styles.avatarSm}><Text style={styles.avatarSmText}>{user?.nombre?.[0]}{user?.apellido?.[0]}</Text></View>
+                  <Avatar uri={user?.fotoUrl} ini={`${user?.nombre?.[0] ?? ''}${user?.apellido?.[0] ?? ''}`} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.playerName}>{user?.nombre} {user?.apellido}</Text>
                     <Text style={styles.playerMeta}>{user?.categoria?.nombre || 'Vos'}</Text>
@@ -288,7 +300,7 @@ export default function Inscribirse() {
 
                 {jugador2 ? (
                   <View style={[styles.playerCard, { borderColor: colors.green500 }]}>
-                    <View style={styles.avatarSm}><Text style={styles.avatarSmText}>{jugador2.nombre[0]}{jugador2.apellido[0]}</Text></View>
+                    <Avatar uri={jugador2.fotoUrl} ini={`${jugador2.nombre[0]}${jugador2.apellido[0]}`} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.playerName}>{jugador2.nombre} {jugador2.apellido}</Text>
                       <Text style={styles.playerMeta}>{jugador2.categoria?.nombre || 'Sin categoría'}</Text>
@@ -317,7 +329,7 @@ export default function Inscribirse() {
 
                     {resultados.map((j) => (
                       <TouchableOpacity key={j.id} style={styles.resultRow} onPress={() => { setJugador2(j); setFormNuevo(false); }}>
-                        <View style={styles.avatarSm}><Text style={styles.avatarSmText}>{j.nombre[0]}{j.apellido[0]}</Text></View>
+                        <Avatar uri={j.fotoUrl} ini={`${j.nombre[0]}${j.apellido[0]}`} />
                         <View style={{ flex: 1 }}>
                           <Text style={styles.playerName}>{j.nombre} {j.apellido}</Text>
                           <Text style={styles.playerMeta}>{j.documento} · {j.categoria?.nombre || 'Sin categoría'}</Text>
