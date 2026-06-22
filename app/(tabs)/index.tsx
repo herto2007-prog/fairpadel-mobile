@@ -144,9 +144,18 @@ function FeedRow({
 
   const c = FEED_CONFIG[item.tipo] || { Icon: Activity, color: colors.gray400, bg: colors.dark100 };
   const { Icon } = c;
+  // El feed trae el link en formato web (/t/<slug>); la app usa /torneo/<slug>.
+  const slug = item.link?.startsWith('/t/') ? item.link.slice(3) : null;
+  const navegable = !!slug;
+  const irAlTorneo = () => { if (slug) router.push(`/torneo/${slug}`); };
   return (
     <View style={styles.feedCard}>
-      <View style={styles.feedTop}>
+      <TouchableOpacity
+        style={styles.feedTop}
+        onPress={irAlTorneo}
+        disabled={!navegable}
+        activeOpacity={navegable ? 0.7 : 1}
+      >
         <View style={[styles.feedIcon, { backgroundColor: c.bg }]}>
           <Icon size={18} color={c.color} />
         </View>
@@ -155,7 +164,8 @@ function FeedRow({
           {item.detalle ? <Text style={styles.feedDetail} numberOfLines={1}>{item.detalle}</Text> : null}
         </View>
         <Text style={styles.feedTime}>{hace(item.fecha)}</Text>
-      </View>
+        {navegable && <ChevronRight size={18} color={colors.gray500} />}
+      </TouchableOpacity>
       {reaccionBar}
     </View>
   );
