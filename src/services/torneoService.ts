@@ -33,10 +33,30 @@ export interface TorneoListItem {
   totalInscritos: number;
 }
 
+export interface JugadorInscrito {
+  id: string;
+  nombre: string;
+  apellido: string;
+  fotoUrl?: string | null;
+}
+export interface ParejaInscrita {
+  id: string;
+  jugador1: JugadorInscrito;
+  jugador2?: JugadorInscrito | null;
+  fechaInscripcion?: string;
+}
+export interface CategoriaInscritos {
+  categoriaId: string;
+  categoriaNombre: string;
+  categoriaTipo: string;
+  parejas: ParejaInscrita[];
+}
+
 export interface TorneoDetalle extends TorneoListItem {
   region?: string;
   pais?: string;
   minutosPorPartido?: number;
+  estado?: string; // PUBLICADO | EN_CURSO | FINALIZADO
   inscripcionesAbiertas: boolean;
   sedePrincipal?: {
     id: string;
@@ -97,6 +117,12 @@ export const torneoService = {
   getTorneoBySlug: async (slug: string): Promise<TorneoDetalle> => {
     const res = await api.get(`/t/${slug}`);
     return res.data.torneo;
+  },
+
+  /** GET /public/torneos/:id/inscritos — parejas inscriptas (confirmadas) por categoría */
+  getInscritos: async (tournamentId: string): Promise<{ totalInscritos: number; categorias: CategoriaInscritos[] }> => {
+    const res = await api.get(`/public/torneos/${tournamentId}/inscritos`);
+    return { totalInscritos: res.data?.totalInscritos ?? 0, categorias: res.data?.categorias ?? [] };
   },
 
   /** GET /t/datos/filtros — ciudades y categorías para los filtros */

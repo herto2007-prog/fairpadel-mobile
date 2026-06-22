@@ -21,10 +21,32 @@ import {
   Award,
   AlertCircle,
 } from 'lucide-react-native';
-import { torneoService } from '../../src/services/torneoService';
+import { torneoService, JugadorInscrito } from '../../src/services/torneoService';
 import { colors, spacing, radius } from '../../src/lib/theme';
 import { formatCurrency } from '../../src/utils/currency';
 import { formatDatePYShort, formatDiasRestantes } from '../../src/utils/date';
+
+function JugadorMini({ j }: { j?: JugadorInscrito | null }) {
+  if (!j) {
+    return (
+      <View style={styles.jugMini}>
+        <View style={[styles.jugAvatar, styles.jugAvatarFallback]}><Text style={styles.jugIni}>?</Text></View>
+        <Text style={styles.jugNombre} numberOfLines={1}>A confirmar</Text>
+      </View>
+    );
+  }
+  const ini = `${j.nombre?.[0] ?? ''}${j.apellido?.[0] ?? ''}`.toUpperCase();
+  return (
+    <TouchableOpacity style={styles.jugMini} activeOpacity={0.8} onPress={() => router.push(`/jugador/${j.id}`)}>
+      {j.fotoUrl ? (
+        <Image source={{ uri: j.fotoUrl }} style={styles.jugAvatar} />
+      ) : (
+        <View style={[styles.jugAvatar, styles.jugAvatarFallback]}><Text style={styles.jugIni}>{ini}</Text></View>
+      )}
+      <Text style={styles.jugNombre} numberOfLines={1}>{j.nombre} {j.apellido}</Text>
+    </TouchableOpacity>
+  );
+}
 
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
@@ -46,6 +68,12 @@ export default function TorneoDetalle() {
     queryKey: ['torneo', slug],
     queryFn: () => torneoService.getTorneoBySlug(slug),
     enabled: !!slug,
+  });
+
+  const inscritosQ = useQuery({
+    queryKey: ['torneo-inscritos', torneo?.id],
+    queryFn: () => torneoService.getInscritos(torneo!.id),
+    enabled: !!torneo?.id,
   });
 
   const abrirInscripcion = () => {
@@ -135,6 +163,40 @@ export default function TorneoDetalle() {
               </View>
             </View>
           )}
+
+          {/* Inscriptos */}
+          {(() => {
+            const cats = (inscritosQ.data?.categorias ?? []).filter((c) => c.parejas.length > 0);
+            const total = inscritosQ.data?.totalInscritos ?? 0;
+            if (inscritosQ.isLoading) {
+              return (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Inscriptos</Text>
+                  <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.sm }} />
+                </View>
+              );
+            }
+            if (cats.length === 0) return null;
+            return (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Inscriptos ({total})</Text>
+                {cats.map((c) => (
+                  <View key={c.categoriaId} style={{ marginTop: spacing.md }}>
+                    <Text style={styles.inscCatTitle}>{c.categoriaNombre} · {c.parejas.length} {c.parejas.length === 1 ? 'pareja' : 'parejas'}</Text>
+                    <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+                      {c.parejas.map((p) => (
+                        <View key={p.id} style={styles.parejaCard}>
+                          <JugadorMini j={p.jugador1} />
+                          <Text style={styles.parejaVs}>/</Text>
+                          <JugadorMini j={p.jugador2} />
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
 
           {/* Modalidades */}
           {torneo.modalidades && torneo.modalidades.length > 0 && (
@@ -261,6 +323,18 @@ const styles = StyleSheet.create({
   chipClosed: { opacity: 0.45 },
   chipText: { color: colors.white, fontSize: 13, fontWeight: '600' },
   chipTextClosed: { color: colors.gray400 },
+  inscCatTitle: { color: colors.gray400, fontSize: 13, fontWeight: '700' },
+  parejaCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.lg, padding: spacing.sm,
+  },
+  jugMini: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  jugAvatar: { width: 34, height: 34, borderRadius: 17 },
+  jugAvatarFallback: { backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
+  jugIni: { color: colors.white, fontSize: 13, fontWeight: '800' },
+  jugNombre: { flex: 1, color: colors.white, fontSize: 13, fontWeight: '600' },
+  parejaVs: { color: colors.gray500, fontSize: 14, fontWeight: '800', paddingHorizontal: 6 },
   premio: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   premioText: { color: colors.white, fontSize: 14, flex: 1 },
   premioPuesto: { fontWeight: '800', color: colors.amber500 },
