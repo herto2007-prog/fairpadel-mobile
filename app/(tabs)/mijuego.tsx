@@ -20,6 +20,8 @@ import {
   MapPin,
   CalendarClock,
   TrendingDown,
+  Route,
+  ChevronRight,
 } from 'lucide-react-native';
 import { perfilService, NivelLogro } from '../../src/services/perfilService';
 import { jugadorService, NodoAgenda } from '../../src/services/jugadorService';
@@ -150,6 +152,18 @@ export default function MiJuegoTab() {
             ) : (
               <View style={styles.card}><Text style={styles.emptyText}>Todavía no tenés ranking. Jugá un torneo para sumar puntos.</Text></View>
             )}
+          </View>
+
+          {/* Circuitos */}
+          <View style={styles.section}>
+            <TouchableOpacity style={styles.circuitosCard} activeOpacity={0.85} onPress={() => router.navigate('/circuitos')}>
+              <View style={styles.circuitosIcon}><Route size={20} color={colors.primary} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.circuitosTitle}>Circuitos y rankings</Text>
+                <Text style={styles.circuitosSub}>Mirá las tablas de los circuitos y tu puesto</Text>
+              </View>
+              <ChevronRight size={20} color={colors.gray500} />
+            </TouchableOpacity>
           </View>
 
           {/* Efectividad */}
@@ -340,4 +354,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary, paddingVertical: spacing.md - 2, borderRadius: radius.lg, marginTop: spacing.md,
   },
   emptyBtnText: { color: colors.white, fontWeight: '700', fontSize: 14 },
+  // Circuitos entry
+  circuitosCard: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.lg, padding: spacing.md,
+  },
+  circuitosIcon: {
+    width: 40, height: 40, borderRadius: radius.md, backgroundColor: 'rgba(223,37,49,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  circuitosTitle: { color: colors.white, fontSize: 15, fontWeight: '700' },
+  circuitosSub: { color: colors.gray400, fontSize: 12, marginTop: 2 },
 });
