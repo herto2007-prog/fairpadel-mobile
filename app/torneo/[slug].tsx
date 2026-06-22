@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -21,10 +22,60 @@ import {
   Award,
   AlertCircle,
 } from 'lucide-react-native';
-import { torneoService, JugadorInscrito } from '../../src/services/torneoService';
+import { torneoService, JugadorInscrito, PartidoBracket, ParejaBracket } from '../../src/services/torneoService';
 import { colors, spacing, radius } from '../../src/lib/theme';
 import { formatCurrency } from '../../src/utils/currency';
 import { formatDatePYShort, formatDiasRestantes } from '../../src/utils/date';
+
+// Etiquetas legibles de fase (display; el back manda el código crudo)
+const FASE_LABEL: Record<string, string> = {
+  ZONA: 'Zona', REPECHAJE: 'Repechaje', TREINTAYDOSAVOS: '32avos', DIECISEISAVOS: '16avos',
+  OCTAVOS: 'Octavos', CUARTOS: 'Cuartos', SEMIS: 'Semifinal', FINAL: 'Final',
+};
+
+const nombrePareja = (p?: ParejaBracket | null, origen?: string | null): string => {
+  if (!p || (!p.jugador1 && !p.jugador2)) return origen || 'A definir';
+  const j1 = p.jugador1 ? `${p.jugador1.nombre} ${p.jugador1.apellido[0] ?? ''}.` : '';
+  const j2 = p.jugador2 ? `${p.jugador2.nombre} ${p.jugador2.apellido[0] ?? ''}.` : '';
+  return [j1, j2].filter(Boolean).join(' / ') || origen || 'A definir';
+};
+
+function mismaPareja(a?: ParejaBracket | null, b?: ParejaBracket | null): boolean {
+  if (!a || !b || !a.jugador1 || !b.jugador1) return false;
+  return a.jugador1.nombre === b.jugador1.nombre && a.jugador1.apellido === b.jugador1.apellido;
+}
+
+function BracketMatch({ p }: { p: PartidoBracket }) {
+  const gana1 = p.ganador && mismaPareja(p.ganador, p.inscripcion1);
+  const gana2 = p.ganador && mismaPareja(p.ganador, p.inscripcion2);
+  const sets = p.resultado ? [p.resultado.set1, p.resultado.set2, p.resultado.set3].filter(Boolean) as [number, number][] : [];
+  return (
+    <View style={styles.matchCard}>
+      <View style={styles.matchRow}>
+        <Text style={[styles.matchPareja, gana1 && styles.matchGanador]} numberOfLines={1}>
+          {nombrePareja(p.inscripcion1, p.origen1)}
+        </Text>
+        <View style={styles.matchSets}>
+          {sets.map((s, i) => <Text key={i} style={[styles.matchSet, gana1 && styles.matchGanador]}>{s[0]}</Text>)}
+        </View>
+      </View>
+      <View style={styles.matchDivider} />
+      <View style={styles.matchRow}>
+        <Text style={[styles.matchPareja, gana2 && styles.matchGanador]} numberOfLines={1}>
+          {p.esBye ? 'BYE' : nombrePareja(p.inscripcion2, p.origen2)}
+        </Text>
+        <View style={styles.matchSets}>
+          {sets.map((s, i) => <Text key={i} style={[styles.matchSet, gana2 && styles.matchGanador]}>{s[1]}</Text>)}
+        </View>
+      </View>
+      {(p.fecha || p.cancha) && (
+        <Text style={styles.matchMeta}>
+          {[p.fecha ? formatDatePYShort(p.fecha) : null, p.hora, p.cancha].filter(Boolean).join(' · ')}
+        </Text>
+      )}
+    </View>
+  );
+}
 
 function JugadorMini({ j }: { j?: JugadorInscrito | null }) {
   if (!j) {
@@ -74,6 +125,32 @@ export default function TorneoDetalle() {
     queryKey: ['torneo-inscritos', torneo?.id],
     queryFn: () => torneoService.getInscritos(torneo!.id),
     enabled: !!torneo?.id,
+  });
+
+  // Cuadro: categorías con bracket publicado + partidos de la categoría elegida
+  const catsBracketQ = useQuery({
+    queryKey: ['torneo-cats-bracket', torneo?.id],
+    queryFn: () => torneoService.getCategoriasBracket(torneo!.id),
+    enabled: !!torneo?.id,
+  });
+  const [catSel, setCatSel] = useState<string | null>(null);
+  useEffect(() => {
+    if (!catSel && catsBracketQ.data && catsBracketQ.data.length > 0) {
+      setCatSel(catsBracketQ.data[0].id);
+    }
+  }, [catsBracketQ.data, catSel]);
+  const bracketQ = useQuery({
+    queryKey: ['torneo-bracket', torneo?.id, catSel],
+    queryFn: () => torneoService.getBracket(torneo!.id, catSel!),
+    enabled: !!torneo?.id && !!catSel,
+  });
+
+  // Campeones (solo finalizados)
+  const esFinalizado = torneo?.estado === 'FINALIZADO';
+  const campeonesQ = useQuery({
+    queryKey: ['torneo-campeones', torneo?.id],
+    queryFn: () => torneoService.getCampeones(torneo!.id),
+    enabled: !!torneo?.id && esFinalizado,
   });
 
   const abrirInscripcion = () => {
@@ -134,6 +211,25 @@ export default function TorneoDetalle() {
           <Text style={styles.org}>
             Organiza {torneo.organizador.nombre} {torneo.organizador.apellido}
           </Text>
+
+          {/* Campeones (torneos finalizados) */}
+          {esFinalizado && (campeonesQ.data?.length ?? 0) > 0 && (
+            <View style={styles.campeonesBox}>
+              <View style={styles.campeonesHead}>
+                <Trophy size={18} color={colors.amber500} />
+                <Text style={styles.campeonesTitle}>Campeones</Text>
+              </View>
+              {campeonesQ.data!.map((c) => (
+                <View key={c.categoriaId} style={styles.campeonRow}>
+                  <Text style={styles.campeonCat} numberOfLines={1}>{c.categoriaNombre}</Text>
+                  <View style={styles.campeonParejaWrap}>
+                    <JugadorMini j={c.campeon.jugador1 as JugadorInscrito} />
+                    {c.campeon.jugador2 ? <JugadorMini j={c.campeon.jugador2 as JugadorInscrito} /> : null}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
 
           {/* Info principal */}
           <View style={styles.infoCard}>
@@ -197,6 +293,52 @@ export default function TorneoDetalle() {
               </View>
             );
           })()}
+
+          {/* Cuadro y resultados (categorías con bracket publicado) */}
+          {(catsBracketQ.data?.length ?? 0) > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Cuadro y resultados</Text>
+              <View style={styles.chips}>
+                {catsBracketQ.data!.map((c) => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={[styles.chip, catSel === c.id && styles.chipOn]}
+                    onPress={() => setCatSel(c.id)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.chipText, catSel === c.id && styles.chipTextOn]}>{c.nombre}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {bracketQ.isLoading ? (
+                <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.md }} />
+              ) : (bracketQ.data?.length ?? 0) === 0 ? (
+                <Text style={styles.cuadroVacio}>El cuadro todavía no tiene partidos.</Text>
+              ) : (
+                (() => {
+                  const partidos = bracketQ.data!;
+                  // Agrupar por fase, ordenar grupos por el menor 'orden'
+                  const grupos = new Map<string, PartidoBracket[]>();
+                  for (const p of partidos) {
+                    if (!grupos.has(p.fase)) grupos.set(p.fase, []);
+                    grupos.get(p.fase)!.push(p);
+                  }
+                  const fasesOrdenadas = [...grupos.entries()].sort(
+                    (a, b) => Math.min(...a[1].map((x) => x.orden)) - Math.min(...b[1].map((x) => x.orden)),
+                  );
+                  return fasesOrdenadas.map(([fase, ps]) => (
+                    <View key={fase} style={{ marginTop: spacing.md }}>
+                      <Text style={styles.faseTitle}>{FASE_LABEL[fase] || fase}</Text>
+                      <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+                        {ps.map((p) => <BracketMatch key={p.id} p={p} />)}
+                      </View>
+                    </View>
+                  ));
+                })()
+              )}
+            </View>
+          )}
 
           {/* Modalidades */}
           {torneo.modalidades && torneo.modalidades.length > 0 && (
@@ -323,6 +465,32 @@ const styles = StyleSheet.create({
   chipClosed: { opacity: 0.45 },
   chipText: { color: colors.white, fontSize: 13, fontWeight: '600' },
   chipTextClosed: { color: colors.gray400 },
+  // Campeones
+  campeonesBox: {
+    backgroundColor: 'rgba(245,158,11,0.10)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)',
+    borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.md,
+  },
+  campeonesHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+  campeonesTitle: { color: colors.amber500, fontSize: 16, fontWeight: '800' },
+  campeonRow: { marginTop: spacing.sm },
+  campeonCat: { color: colors.gray400, fontSize: 12, fontWeight: '700', marginBottom: 4 },
+  campeonParejaWrap: { flexDirection: 'row', gap: spacing.md, flexWrap: 'wrap' },
+  // Cuadro
+  chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipTextOn: { color: colors.white },
+  cuadroVacio: { color: colors.gray400, fontSize: 13, marginTop: spacing.md },
+  faseTitle: { color: colors.white, fontSize: 14, fontWeight: '800' },
+  matchCard: {
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.lg, padding: spacing.sm,
+  },
+  matchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  matchPareja: { flex: 1, color: colors.gray400, fontSize: 13 },
+  matchGanador: { color: colors.white, fontWeight: '800' },
+  matchSets: { flexDirection: 'row', gap: 8 },
+  matchSet: { color: colors.gray400, fontSize: 13, fontWeight: '700', minWidth: 12, textAlign: 'center' },
+  matchDivider: { height: 1, backgroundColor: colors.border, marginVertical: 6 },
+  matchMeta: { color: colors.gray500, fontSize: 11, marginTop: 6 },
   inscCatTitle: { color: colors.gray400, fontSize: 13, fontWeight: '700' },
   parejaCard: {
     flexDirection: 'row', alignItems: 'center',

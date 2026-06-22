@@ -72,6 +72,47 @@ export interface TorneoDetalle extends TorneoListItem {
   organizador: { id: string; nombre: string; apellido: string; telefono?: string; email?: string };
 }
 
+// ── Cuadro / bracket ──
+export interface JugadorBracket {
+  nombre: string;
+  apellido: string;
+  fotoUrl?: string | null;
+}
+export interface ParejaBracket {
+  jugador1?: JugadorBracket | null;
+  jugador2?: JugadorBracket | null;
+}
+export interface PartidoBracket {
+  id: string;
+  fase: string; // ZONA, OCTAVOS, CUARTOS, SEMIS, FINAL, REPECHAJE...
+  orden: number;
+  esBye: boolean;
+  inscripcion1?: ParejaBracket | null;
+  inscripcion2?: ParejaBracket | null;
+  origen1?: string | null;
+  origen2?: string | null;
+  ganador?: ParejaBracket | null;
+  resultado?: { set1: [number, number]; set2?: [number, number]; set3?: [number, number] };
+  fecha?: string | null;
+  hora?: string | null;
+  cancha?: string | null;
+  sede?: string | null;
+}
+export interface CategoriaBracket {
+  id: string;
+  nombre: string;
+  tipo: string;
+}
+export interface Campeon {
+  categoriaId: string;
+  categoriaNombre: string;
+  campeon: {
+    id?: string;
+    jugador1?: { id: string; nombre: string; apellido: string; fotoUrl?: string | null } | null;
+    jugador2?: { id: string; nombre: string; apellido: string; fotoUrl?: string | null } | null;
+  };
+}
+
 export type TorneoEstadoFiltro = 'proximos' | 'en-curso' | 'finalizados' | 'todos';
 
 export interface TorneoFilters {
@@ -123,6 +164,24 @@ export const torneoService = {
   getInscritos: async (tournamentId: string): Promise<{ totalInscritos: number; categorias: CategoriaInscritos[] }> => {
     const res = await api.get(`/public/torneos/${tournamentId}/inscritos`);
     return { totalInscritos: res.data?.totalInscritos ?? 0, categorias: res.data?.categorias ?? [] };
+  },
+
+  /** GET /public/torneos/:id/categorias — categorías con cuadro publicado */
+  getCategoriasBracket: async (tournamentId: string): Promise<CategoriaBracket[]> => {
+    const res = await api.get(`/public/torneos/${tournamentId}/categorias`);
+    return res.data?.categorias ?? [];
+  },
+
+  /** GET /public/torneos/:id/bracket?categoriaId= — partidos del cuadro */
+  getBracket: async (tournamentId: string, categoriaId: string): Promise<PartidoBracket[]> => {
+    const res = await api.get(`/public/torneos/${tournamentId}/bracket?categoriaId=${categoriaId}`);
+    return res.data?.partidos ?? [];
+  },
+
+  /** GET /public/torneos/:id/campeones — campeón por categoría (finalizados) */
+  getCampeones: async (tournamentId: string): Promise<Campeon[]> => {
+    const res = await api.get(`/public/torneos/${tournamentId}/campeones`);
+    return res.data?.campeones ?? [];
   },
 
   /** GET /t/datos/filtros — ciudades y categorías para los filtros */
