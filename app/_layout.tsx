@@ -31,6 +31,8 @@ export default function RootLayout() {
             <Stack.Screen name="inscribirse/[slug]" />
             <Stack.Screen name="inscripciones" />
             <Stack.Screen name="jugador/[id]" />
+            <Stack.Screen name="notificaciones" />
+            <Stack.Screen name="crear-post" />
           </Stack>
           <StatusBar style="light" />
         </AuthProvider>

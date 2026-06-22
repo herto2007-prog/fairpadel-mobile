@@ -23,6 +23,7 @@ import {
   CalendarClock,
   ChevronRight,
   Bell,
+  Plus,
   X,
 } from 'lucide-react-native';
 import { useAuth } from '../../src/features/auth/context/AuthContext';
@@ -95,9 +96,54 @@ function FeedRow({
   onToggle: () => void;
   onVerQuienes: () => void;
 }) {
+  const count = item.reaccionesCount ?? 0;
+
+  const reaccionBar = item.reaccionable ? (
+    <View style={styles.reaccionBar}>
+      <TouchableOpacity style={styles.likeBtn} onPress={onToggle} activeOpacity={0.7} hitSlop={6}>
+        <PalaHeart size={20} filled={!!item.yaReaccione} />
+        <Text style={[styles.likeText, item.yaReaccione && styles.likeTextOn]}>Me gusta</Text>
+      </TouchableOpacity>
+      {count > 0 &&
+        (item.esDueno ? (
+          <TouchableOpacity onPress={onVerQuienes} hitSlop={6}>
+            <Text style={styles.count}>{count}</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.count}>{count}</Text>
+        ))}
+    </View>
+  ) : null;
+
+  // Publicación del jugador (post con foto)
+  if (item.tipo === 'publicacion') {
+    const ini = `${item.autorNombre?.[0] ?? ''}`.toUpperCase();
+    return (
+      <View style={styles.feedCard}>
+        <TouchableOpacity
+          style={styles.postAuthor}
+          activeOpacity={0.8}
+          onPress={() => item.autorId && router.push(`/jugador/${item.autorId}`)}
+        >
+          {item.autorFotoUrl ? (
+            <Image source={{ uri: item.autorFotoUrl }} style={styles.postAvatar} />
+          ) : (
+            <View style={[styles.postAvatar, styles.postAvatarFallback]}><Text style={styles.postIni}>{ini}</Text></View>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.postAuthorName} numberOfLines={1}>{item.autorNombre || item.titulo}</Text>
+            <Text style={styles.feedTime}>{hace(item.fecha)}</Text>
+          </View>
+        </TouchableOpacity>
+        {item.detalle ? <Text style={styles.postCaption}>{item.detalle}</Text> : null}
+        {item.fotoUrl ? <Image source={{ uri: item.fotoUrl }} style={styles.postFoto} resizeMode="cover" /> : null}
+        {reaccionBar}
+      </View>
+    );
+  }
+
   const c = FEED_CONFIG[item.tipo] || { Icon: Activity, color: colors.gray400, bg: colors.dark100 };
   const { Icon } = c;
-  const count = item.reaccionesCount ?? 0;
   return (
     <View style={styles.feedCard}>
       <View style={styles.feedTop}>
@@ -110,23 +156,7 @@ function FeedRow({
         </View>
         <Text style={styles.feedTime}>{hace(item.fecha)}</Text>
       </View>
-
-      {item.reaccionable && (
-        <View style={styles.reaccionBar}>
-          <TouchableOpacity style={styles.likeBtn} onPress={onToggle} activeOpacity={0.7} hitSlop={6}>
-            <PalaHeart size={20} filled={!!item.yaReaccione} />
-            <Text style={[styles.likeText, item.yaReaccione && styles.likeTextOn]}>Me gusta</Text>
-          </TouchableOpacity>
-          {count > 0 &&
-            (item.esDueno ? (
-              <TouchableOpacity onPress={onVerQuienes} hitSlop={6}>
-                <Text style={styles.count}>{count}</Text>
-              </TouchableOpacity>
-            ) : (
-              <Text style={styles.count}>{count}</Text>
-            ))}
-        </View>
-      )}
+      {reaccionBar}
     </View>
   );
 }
@@ -298,6 +328,9 @@ export default function HomeTab() {
         </>
       )}
     </ScrollView>
+    <TouchableOpacity style={styles.fab} onPress={() => router.push('/crear-post')} activeOpacity={0.85}>
+      <Plus size={26} color={colors.white} />
+    </TouchableOpacity>
     <ReaccionadoresModal item={modalItem} onClose={() => setModalItem(null)} />
     </>
   );
@@ -398,6 +431,21 @@ const styles = StyleSheet.create({
   likeText: { color: colors.gray400, fontSize: 13, fontWeight: '600' },
   likeTextOn: { color: colors.primary },
   count: { color: colors.gray400, fontSize: 13, fontWeight: '700' },
+  // Publicación (post)
+  postAuthor: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  postAvatar: { width: 40, height: 40, borderRadius: 20 },
+  postAvatarFallback: { backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
+  postIni: { color: colors.white, fontSize: 15, fontWeight: '800' },
+  postAuthorName: { color: colors.white, fontSize: 15, fontWeight: '700' },
+  postCaption: { color: colors.white, fontSize: 14, lineHeight: 20, marginTop: spacing.sm },
+  postFoto: { width: '100%', height: 280, borderRadius: radius.md, backgroundColor: colors.dark100, marginTop: spacing.sm },
+  // FAB crear publicación
+  fab: {
+    position: 'absolute', right: spacing.lg, bottom: spacing.xl,
+    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 6,
+  },
   // Modal reaccionadores
   modalRoot: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalCard: {

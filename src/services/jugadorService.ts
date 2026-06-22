@@ -18,6 +18,11 @@ export interface FeedItem {
   reaccionesCount?: number;
   yaReaccione?: boolean;
   esDueno?: boolean; // puede ver quiénes reaccionaron
+  // Publicaciones (tipo 'publicacion')
+  fotoUrl?: string | null;
+  autorId?: string;
+  autorNombre?: string;
+  autorFotoUrl?: string | null;
 }
 
 export interface Reaccionador {
