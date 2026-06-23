@@ -33,6 +33,13 @@ const FASE_LABEL: Record<string, string> = {
   OCTAVOS: 'Octavos', CUARTOS: 'Cuartos', SEMIS: 'Semifinal', FINAL: 'Final',
 };
 
+// Orden real de progresión del cuadro (el campo 'orden' del back no sirve entre fases).
+const FASE_ORDER = ['ZONA', 'REPECHAJE', 'TREINTAYDOSAVOS', 'DIECISEISAVOS', 'OCTAVOS', 'CUARTOS', 'SEMIS', 'FINAL'];
+const faseRank = (f: string) => {
+  const i = FASE_ORDER.indexOf(f);
+  return i === -1 ? 99 : i;
+};
+
 const nombrePareja = (p?: ParejaBracket | null, origen?: string | null): string => {
   if (!p || (!p.jugador1 && !p.jugador2)) return origen || 'A definir';
   const j1 = p.jugador1 ? `${p.jugador1.nombre} ${p.jugador1.apellido[0] ?? ''}.` : '';
@@ -89,8 +96,8 @@ function BracketTree({ partidos }: { partidos: PartidoBracket[] }) {
     grupos.get(p.fase)!.push(p);
   }
   const rounds = [...grupos.entries()]
-    .map(([fase, ps]) => ({ fase, ps: ps.slice().sort((a, b) => a.orden - b.orden), min: Math.min(...ps.map((x) => x.orden)) }))
-    .sort((a, b) => a.min - b.min);
+    .map(([fase, ps]) => ({ fase, ps: ps.slice().sort((a, b) => a.orden - b.orden) }))
+    .sort((a, b) => faseRank(a.fase) - faseRank(b.fase));
 
   const maxN = Math.max(...rounds.map((r) => r.ps.length), 1);
   const H = maxN * BR_UNIT;
