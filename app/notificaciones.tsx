@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -48,9 +49,23 @@ function hace(iso: string): string {
   return `hace ${Math.floor(d / 7)} sem`;
 }
 
+function esHoy(iso: string): boolean {
+  const d = new Date(iso);
+  const n = new Date();
+  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+}
+
+type Filtro = 'todas' | 'noleidas' | 'leidas';
+const FILTROS: { id: Filtro; label: string }[] = [
+  { id: 'todas', label: 'Todas' },
+  { id: 'noleidas', label: 'No leídas' },
+  { id: 'leidas', label: 'Leídas' },
+];
+
 export default function NotificacionesScreen() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
+  const [filtro, setFiltro] = useState<Filtro>('todas');
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['notificaciones'],
@@ -58,6 +73,10 @@ export default function NotificacionesScreen() {
   });
   const lista = data ?? [];
   const hayNoLeidas = lista.some((n) => !n.leida);
+
+  const filtrada = lista.filter((n) => (filtro === 'todas' ? true : filtro === 'noleidas' ? !n.leida : n.leida));
+  const hoy = filtrada.filter((n) => esHoy(n.createdAt));
+  const antes = filtrada.filter((n) => !esHoy(n.createdAt));
 
   const refrescarContador = () => qc.invalidateQueries({ queryKey: ['notif-count'] });
 
@@ -77,6 +96,29 @@ export default function NotificacionesScreen() {
     );
     await notificacionService.marcarTodasLeidas().catch(() => undefined);
     refrescarContador();
+  };
+
+  const renderRow = (n: Notificacion) => {
+    const cfg = ICONO[n.tipo] || ICONO.SISTEMA;
+    const { Icon } = cfg;
+    return (
+      <TouchableOpacity
+        key={n.id}
+        style={[styles.row, !n.leida && styles.rowUnread]}
+        activeOpacity={0.8}
+        onPress={() => abrir(n)}
+      >
+        <View style={[styles.icon, { backgroundColor: `${cfg.color}22` }]}>
+          <Icon size={18} color={cfg.color} />
+        </View>
+        <View style={{ flex: 1 }}>
+          {n.titulo ? <Text style={styles.rowTitle} numberOfLines={1}>{n.titulo}</Text> : null}
+          <Text style={styles.rowText} numberOfLines={2}>{n.contenido}</Text>
+          <Text style={styles.rowTime}>{hace(n.createdAt)}</Text>
+        </View>
+        {!n.leida && <View style={styles.dot} />}
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -121,34 +163,49 @@ export default function NotificacionesScreen() {
           <Text style={styles.emptyText}>Cuando pase algo en tu mundo del pádel, te avisamos acá.</Text>
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
-        >
-          {lista.map((n) => {
-            const cfg = ICONO[n.tipo] || ICONO.SISTEMA;
-            const { Icon } = cfg;
-            return (
+        <>
+          <View style={styles.segmentWrap}>
+            {FILTROS.map((f) => (
               <TouchableOpacity
-                key={n.id}
-                style={[styles.row, !n.leida && styles.rowUnread]}
+                key={f.id}
+                style={[styles.segment, filtro === f.id && styles.segmentActive]}
+                onPress={() => setFiltro(f.id)}
                 activeOpacity={0.8}
-                onPress={() => abrir(n)}
               >
-                <View style={[styles.icon, { backgroundColor: `${cfg.color}22` }]}>
-                  <Icon size={18} color={cfg.color} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  {n.titulo ? <Text style={styles.rowTitle} numberOfLines={1}>{n.titulo}</Text> : null}
-                  <Text style={styles.rowText} numberOfLines={2}>{n.contenido}</Text>
-                  <Text style={styles.rowTime}>{hace(n.createdAt)}</Text>
-                </View>
-                {!n.leida && <View style={styles.dot} />}
+                <Text style={[styles.segmentText, filtro === f.id && styles.segmentTextActive]}>{f.label}</Text>
               </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+            ))}
+          </View>
+
+          <ScrollView
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+          >
+            {filtrada.length === 0 ? (
+              <View style={styles.filterEmpty}>
+                <Text style={styles.emptyText}>
+                  {filtro === 'noleidas' ? 'No tenés notificaciones sin leer.' : filtro === 'leidas' ? 'No tenés notificaciones leídas.' : 'Sin notificaciones.'}
+                </Text>
+              </View>
+            ) : (
+              <>
+                {hoy.length > 0 && (
+                  <>
+                    <Text style={styles.groupLabel}>Hoy</Text>
+                    {hoy.map(renderRow)}
+                  </>
+                )}
+                {antes.length > 0 && (
+                  <>
+                    <Text style={[styles.groupLabel, hoy.length > 0 && { marginTop: spacing.lg }]}>Anteriores</Text>
+                    {antes.map(renderRow)}
+                  </>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </>
       )}
     </View>
   );
@@ -161,6 +218,16 @@ const styles = StyleSheet.create({
   title: { flex: 1, color: colors.white, fontSize: 22, fontWeight: 'bold' },
   markAll: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   markAllText: { color: colors.primary, fontSize: 13, fontWeight: '700' },
+  segmentWrap: {
+    flexDirection: 'row', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.lg, padding: 4, marginHorizontal: spacing.lg, marginBottom: spacing.md, gap: 4,
+  },
+  segment: { flex: 1, paddingVertical: spacing.sm, borderRadius: radius.md, alignItems: 'center' },
+  segmentActive: { backgroundColor: colors.primary },
+  segmentText: { color: colors.gray400, fontSize: 13, fontWeight: '600' },
+  segmentTextActive: { color: colors.white, fontWeight: '700' },
+  groupLabel: { color: colors.gray500, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  filterEmpty: { alignItems: 'center', paddingTop: 40 },
   list: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xl, gap: spacing.sm },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md - 2,
