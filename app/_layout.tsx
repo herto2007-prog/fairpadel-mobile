@@ -37,6 +37,9 @@ export default function RootLayout() {
             <Stack.Screen name="register" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="torneo/[slug]" />
+            <Stack.Screen name="torneo/inscriptos" />
+            <Stack.Screen name="torneo/llave" />
+            <Stack.Screen name="torneo/campeones" />
             <Stack.Screen name="inscribirse/[slug]" />
             <Stack.Screen name="inscripciones" />
             <Stack.Screen name="jugador/[id]" />
