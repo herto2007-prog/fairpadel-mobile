@@ -22,7 +22,7 @@ import {
   Award,
   AlertCircle,
 } from 'lucide-react-native';
-import { torneoService, JugadorInscrito, PartidoBracket, ParejaBracket } from '../../src/services/torneoService';
+import { torneoService, JugadorInscrito, JugadorBracket, PartidoBracket, ParejaBracket } from '../../src/services/torneoService';
 import { colors, spacing, radius } from '../../src/lib/theme';
 import { formatCurrency } from '../../src/utils/currency';
 import { formatDatePYShort, formatDiasRestantes } from '../../src/utils/date';
@@ -53,10 +53,10 @@ function mismaPareja(a?: ParejaBracket | null, b?: ParejaBracket | null): boolea
 }
 
 // ── Llave (cuadro tradicional tipo árbol) ─────────────────────
-const BR_W = 158;   // ancho de cada partido
-const BR_H = 58;    // alto de cada partido
+const BR_W = 210;   // ancho de cada partido
+const BR_H = 96;    // alto de cada partido (2 equipos con avatares + meta)
 const BR_VGAP = 18; // separación vertical base
-const BR_COLGAP = 28; // separación horizontal (para las líneas)
+const BR_COLGAP = 30; // separación horizontal (para las líneas)
 const BR_HEAD = 26; // alto del encabezado de ronda
 const BR_UNIT = BR_H + BR_VGAP;
 const BR_LINE = colors.dark300;
@@ -67,23 +67,59 @@ function setsDe(p: PartidoBracket): [number, number][] {
     : [];
 }
 
+const apellidosPareja = (par?: ParejaBracket | null, origen?: string | null): string => {
+  if (!par || (!par.jugador1 && !par.jugador2)) return origen || 'A definir';
+  const a1 = par.jugador1?.apellido || par.jugador1?.nombre || '';
+  const a2 = par.jugador2?.apellido || par.jugador2?.nombre || '';
+  return [a1, a2].filter(Boolean).join(' / ') || origen || 'A definir';
+};
+
+function BrAvatar({ j }: { j?: JugadorBracket | null }) {
+  if (j?.fotoUrl) return <Image source={{ uri: j.fotoUrl }} style={styles.brAv} />;
+  const ini = j ? `${j.nombre?.[0] ?? ''}${j.apellido?.[0] ?? ''}`.toUpperCase() : '';
+  return (
+    <View style={[styles.brAv, styles.brAvFallback]}>
+      <Text style={styles.brAvIni}>{ini || '?'}</Text>
+    </View>
+  );
+}
+
+function BrTeam({ par, origen, gana, score, bye }: { par?: ParejaBracket | null; origen?: string | null; gana: boolean; score: string; bye?: boolean }) {
+  const tienePareja = !bye && !!(par && (par.jugador1 || par.jugador2));
+  return (
+    <View style={styles.brTeamRow}>
+      {tienePareja && (
+        <View style={styles.brAvs}>
+          <BrAvatar j={par!.jugador1} />
+          {par!.jugador2 && <BrAvatar j={par!.jugador2} />}
+        </View>
+      )}
+      <Text style={[styles.brTeam, gana && styles.brWin]} numberOfLines={1}>
+        {bye ? 'BYE' : apellidosPareja(par, origen)}
+      </Text>
+      <Text style={[styles.brScore, gana && styles.brWin]}>{score}</Text>
+    </View>
+  );
+}
+
 function BracketMatchMini({ p }: { p: PartidoBracket }) {
   const gana1 = !!(p.ganador && mismaPareja(p.ganador, p.inscripcion1));
   const gana2 = !!(p.ganador && mismaPareja(p.ganador, p.inscripcion2));
   const sets = setsDe(p);
   const s1 = sets.map((s) => s[0]).join('  ');
   const s2 = sets.map((s) => s[1]).join('  ');
+  const meta = [
+    p.fecha ? formatDatePYShort(p.fecha) : null,
+    p.sede,
+    p.cancha,
+    p.hora ? `${p.hora}h` : null,
+  ].filter(Boolean).join(' · ');
   return (
     <View style={styles.brMatch}>
-      <View style={styles.brTeamRow}>
-        <Text style={[styles.brTeam, gana1 && styles.brWin]} numberOfLines={1}>{nombrePareja(p.inscripcion1, p.origen1)}</Text>
-        <Text style={[styles.brScore, gana1 && styles.brWin]}>{s1}</Text>
-      </View>
+      <BrTeam par={p.inscripcion1} origen={p.origen1} gana={gana1} score={s1} />
       <View style={styles.brTeamDiv} />
-      <View style={styles.brTeamRow}>
-        <Text style={[styles.brTeam, gana2 && styles.brWin]} numberOfLines={1}>{p.esBye ? 'BYE' : nombrePareja(p.inscripcion2, p.origen2)}</Text>
-        <Text style={[styles.brScore, gana2 && styles.brWin]}>{s2}</Text>
-      </View>
+      <BrTeam par={p.inscripcion2} origen={p.origen2} gana={gana2} score={s2} bye={p.esBye} />
+      {meta ? <Text style={styles.brMeta} numberOfLines={1}>{meta}</Text> : null}
     </View>
   );
 }
@@ -536,13 +572,18 @@ const styles = StyleSheet.create({
   },
   brMatch: {
     height: BR_H, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.md, paddingHorizontal: spacing.sm, justifyContent: 'center',
+    borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 8, justifyContent: 'center',
   },
-  brTeamRow: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 22 },
+  brTeamRow: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 30 },
+  brAvs: { flexDirection: 'row', gap: 2 },
+  brAv: { width: 20, height: 20, borderRadius: 10, backgroundColor: colors.dark100 },
+  brAvFallback: { alignItems: 'center', justifyContent: 'center' },
+  brAvIni: { color: colors.gray400, fontSize: 8, fontWeight: '700' },
   brTeam: { flex: 1, color: colors.gray400, fontSize: 12 },
   brScore: { color: colors.gray500, fontSize: 12, fontWeight: '700' },
   brWin: { color: colors.white, fontWeight: '800' },
-  brTeamDiv: { height: 1, backgroundColor: colors.border },
+  brTeamDiv: { height: 1, backgroundColor: colors.border, marginVertical: 2 },
+  brMeta: { color: colors.gray500, fontSize: 9.5, marginTop: 5 },
   brHLine: { position: 'absolute', height: 1.5, backgroundColor: BR_LINE },
   brVLine: { position: 'absolute', width: 1.5, backgroundColor: BR_LINE },
   inscCatTitle: { color: colors.gray400, fontSize: 13, fontWeight: '700' },
