@@ -35,6 +35,8 @@ export default function RootLayout() {
             <Stack.Screen name="crear-post" />
             <Stack.Screen name="circuitos" />
             <Stack.Screen name="circuito/[slug]" />
+            <Stack.Screen name="reservar" />
+            <Stack.Screen name="mis-reservas" />
           </Stack>
           <StatusBar style="light" />
         </AuthProvider>

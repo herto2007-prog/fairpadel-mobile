@@ -154,6 +154,18 @@ export default function MiJuegoTab() {
             )}
           </View>
 
+          {/* Reservar cancha */}
+          <View style={styles.section}>
+            <TouchableOpacity style={styles.circuitosCard} activeOpacity={0.85} onPress={() => router.navigate('/reservar')}>
+              <View style={styles.circuitosIcon}><MapPin size={20} color={colors.primary} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.circuitosTitle}>Reservar una cancha</Text>
+                <Text style={styles.circuitosSub}>¿Querés jugar hoy? Reservá en un complejo cerca</Text>
+              </View>
+              <ChevronRight size={20} color={colors.gray500} />
+            </TouchableOpacity>
+          </View>
+
           {/* Circuitos */}
           <View style={styles.section}>
             <TouchableOpacity style={styles.circuitosCard} activeOpacity={0.85} onPress={() => router.navigate('/circuitos')}>
