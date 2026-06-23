@@ -1,23 +1,32 @@
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { AuthProvider } from '../src/features/auth/context/AuthContext';
 import { queryClient } from '../src/lib/queryClient';
 
-// Mostrar la notificación aunque la app esté abierta (foreground).
-Notifications.setNotificationHandler({
-  handleNotification: async () =>
-    ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-    } as any),
-});
-
 export default function RootLayout() {
+  // expo-notifications fue removido de Expo Go (SDK 53+) y rompe al importarse.
+  // Por eso se carga DIFERIDO y solo en build nativo (Expo Go: appOwnership 'expo').
+  useEffect(() => {
+    if (Constants.appOwnership === 'expo') return;
+    try {
+      const Notifications = require('expo-notifications');
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+        }),
+      });
+    } catch {
+      // sin notificaciones (p. ej. Expo Go)
+    }
+  }, []);
+
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>

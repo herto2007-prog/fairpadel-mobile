@@ -1,8 +1,10 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { api } from './api';
+
+// expo-notifications se removió de Expo Go (SDK 53+) y rompe al importarse de
+// forma estática. Se carga DIFERIDO dentro de registrarPush (solo build nativo).
 
 let tokenActual: string | null = null;
 
@@ -16,6 +18,9 @@ export async function registrarPush(): Promise<string | null> {
     // Expo Go no recibe push remoto -> evitar (solo build/APK).
     if (Constants.appOwnership === 'expo') return null;
     if (!Device.isDevice) return null;
+
+    // Carga diferida: importar acá (no a nivel de módulo) evita romper Expo Go.
+    const Notifications = require('expo-notifications');
 
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
