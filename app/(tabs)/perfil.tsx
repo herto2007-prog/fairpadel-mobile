@@ -247,11 +247,6 @@ export default function PerfilTab() {
               <View style={styles.counterDivider} />
               <Counter value={perfil.stats.torneosJugados} label="Torneos" />
             </View>
-
-            <TouchableOpacity style={styles.editBtn} onPress={() => setEditing(true)} activeOpacity={0.85}>
-              <Edit3 size={16} color={colors.white} />
-              <Text style={styles.editText}>Editar perfil</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Datos de cuenta */}
@@ -268,39 +263,45 @@ export default function PerfilTab() {
             ) : null}
           </View>
 
-          {/* Mi actividad */}
+          {/* Preferencias */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Mi actividad</Text>
-            <TouchableOpacity style={styles.configRow} onPress={() => router.push('/inscripciones')} activeOpacity={0.8}>
-              <View style={styles.configIcon}><Ticket size={18} color={colors.gray400} /></View>
-              <Text style={styles.configText}>Mis inscripciones</Text>
+            <Text style={styles.sectionLabel}>Preferencias</Text>
+            <TouchableOpacity style={styles.configRow} onPress={() => setEditing(true)} activeOpacity={0.8}>
+              <View style={styles.configIcon}><Edit3 size={18} color={colors.primary} /></View>
+              <Text style={styles.configText}>Editar perfil</Text>
               <ChevronRight size={20} color={colors.gray500} />
             </TouchableOpacity>
-          </View>
-
-          {/* Configuración */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Configuración</Text>
             <TouchableOpacity style={styles.configRow} onPress={() => setNotifModal(true)} activeOpacity={0.8}>
-              <View style={styles.configIcon}><Bell size={18} color={colors.gray400} /></View>
+              <View style={styles.configIcon}><Bell size={18} color={colors.primary} /></View>
               <Text style={styles.configText}>Notificaciones</Text>
               <ChevronRight size={20} color={colors.gray500} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.configRow} onPress={() => setPwModal(true)} activeOpacity={0.8}>
-              <View style={styles.configIcon}><KeyRound size={18} color={colors.gray400} /></View>
+              <View style={styles.configIcon}><KeyRound size={18} color={colors.primary} /></View>
               <Text style={styles.configText}>Cambiar contraseña</Text>
               <ChevronRight size={20} color={colors.gray500} />
             </TouchableOpacity>
           </View>
 
+          {/* Mi actividad */}
           <View style={styles.section}>
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
-              <LogOut size={18} color={colors.red500} />
-              <Text style={styles.logoutText}>Cerrar sesión</Text>
+            <Text style={styles.sectionLabel}>Mi actividad</Text>
+            <TouchableOpacity style={styles.configRow} onPress={() => router.push('/inscripciones')} activeOpacity={0.8}>
+              <View style={styles.configIcon}><Ticket size={18} color={colors.primary} /></View>
+              <Text style={styles.configText}>Mis inscripciones</Text>
+              <ChevronRight size={20} color={colors.gray500} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.desactivarBtn} onPress={handleDesactivar} activeOpacity={0.7}>
-              <Power size={15} color={colors.gray500} />
-              <Text style={styles.desactivarText}>Desactivar mi cuenta</Text>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Cuenta</Text>
+            <TouchableOpacity style={styles.configRow} onPress={handleLogout} activeOpacity={0.8}>
+              <View style={styles.configIconRed}><LogOut size={18} color={colors.red500} /></View>
+              <Text style={[styles.configText, { color: colors.red500 }]}>Cerrar sesión</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.configRow} onPress={handleDesactivar} activeOpacity={0.8}>
+              <View style={styles.configIconGray}><Power size={18} color={colors.gray400} /></View>
+              <Text style={[styles.configText, { color: colors.gray400, fontWeight: '600' }]}>Desactivar mi cuenta</Text>
             </TouchableOpacity>
           </View>
 
@@ -349,7 +350,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
     borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm,
   },
-  configIcon: { width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.dark100, alignItems: 'center', justifyContent: 'center' },
+  configIcon: { width: 38, height: 38, borderRadius: radius.md, backgroundColor: 'rgba(223,37,49,0.14)', alignItems: 'center', justifyContent: 'center' },
+  configIconRed: { width: 38, height: 38, borderRadius: radius.md, backgroundColor: 'rgba(239,68,68,0.12)', alignItems: 'center', justifyContent: 'center' },
+  configIconGray: { width: 38, height: 38, borderRadius: radius.md, backgroundColor: 'rgba(156,163,175,0.12)', alignItems: 'center', justifyContent: 'center' },
   configText: { flex: 1, color: colors.white, fontSize: 15, fontWeight: '600' },
   name: { color: colors.white, fontSize: 22, fontWeight: 'bold', marginTop: spacing.md },
   username: { color: colors.gray500, fontSize: 14, marginTop: 2 },
