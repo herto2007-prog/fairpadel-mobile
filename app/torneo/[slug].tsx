@@ -45,35 +45,97 @@ function mismaPareja(a?: ParejaBracket | null, b?: ParejaBracket | null): boolea
   return a.jugador1.nombre === b.jugador1.nombre && a.jugador1.apellido === b.jugador1.apellido;
 }
 
-function BracketMatch({ p }: { p: PartidoBracket }) {
-  const gana1 = p.ganador && mismaPareja(p.ganador, p.inscripcion1);
-  const gana2 = p.ganador && mismaPareja(p.ganador, p.inscripcion2);
-  const sets = p.resultado ? [p.resultado.set1, p.resultado.set2, p.resultado.set3].filter(Boolean) as [number, number][] : [];
+// ── Llave (cuadro tradicional tipo árbol) ─────────────────────
+const BR_W = 158;   // ancho de cada partido
+const BR_H = 58;    // alto de cada partido
+const BR_VGAP = 18; // separación vertical base
+const BR_COLGAP = 28; // separación horizontal (para las líneas)
+const BR_HEAD = 26; // alto del encabezado de ronda
+const BR_UNIT = BR_H + BR_VGAP;
+const BR_LINE = colors.dark300;
+
+function setsDe(p: PartidoBracket): [number, number][] {
+  return p.resultado
+    ? ([p.resultado.set1, p.resultado.set2, p.resultado.set3].filter(Boolean) as [number, number][])
+    : [];
+}
+
+function BracketMatchMini({ p }: { p: PartidoBracket }) {
+  const gana1 = !!(p.ganador && mismaPareja(p.ganador, p.inscripcion1));
+  const gana2 = !!(p.ganador && mismaPareja(p.ganador, p.inscripcion2));
+  const sets = setsDe(p);
+  const s1 = sets.map((s) => s[0]).join('  ');
+  const s2 = sets.map((s) => s[1]).join('  ');
   return (
-    <View style={styles.matchCard}>
-      <View style={styles.matchRow}>
-        <Text style={[styles.matchPareja, gana1 && styles.matchGanador]} numberOfLines={1}>
-          {nombrePareja(p.inscripcion1, p.origen1)}
-        </Text>
-        <View style={styles.matchSets}>
-          {sets.map((s, i) => <Text key={i} style={[styles.matchSet, gana1 && styles.matchGanador]}>{s[0]}</Text>)}
-        </View>
+    <View style={styles.brMatch}>
+      <View style={styles.brTeamRow}>
+        <Text style={[styles.brTeam, gana1 && styles.brWin]} numberOfLines={1}>{nombrePareja(p.inscripcion1, p.origen1)}</Text>
+        <Text style={[styles.brScore, gana1 && styles.brWin]}>{s1}</Text>
       </View>
-      <View style={styles.matchDivider} />
-      <View style={styles.matchRow}>
-        <Text style={[styles.matchPareja, gana2 && styles.matchGanador]} numberOfLines={1}>
-          {p.esBye ? 'BYE' : nombrePareja(p.inscripcion2, p.origen2)}
-        </Text>
-        <View style={styles.matchSets}>
-          {sets.map((s, i) => <Text key={i} style={[styles.matchSet, gana2 && styles.matchGanador]}>{s[1]}</Text>)}
-        </View>
+      <View style={styles.brTeamDiv} />
+      <View style={styles.brTeamRow}>
+        <Text style={[styles.brTeam, gana2 && styles.brWin]} numberOfLines={1}>{p.esBye ? 'BYE' : nombrePareja(p.inscripcion2, p.origen2)}</Text>
+        <Text style={[styles.brScore, gana2 && styles.brWin]}>{s2}</Text>
       </View>
-      {(p.fecha || p.cancha) && (
-        <Text style={styles.matchMeta}>
-          {[p.fecha ? formatDatePYShort(p.fecha) : null, p.hora, p.cancha].filter(Boolean).join(' · ')}
-        </Text>
-      )}
     </View>
+  );
+}
+
+function BracketTree({ partidos }: { partidos: PartidoBracket[] }) {
+  // Agrupar por fase y ordenar rondas por el menor 'orden'
+  const grupos = new Map<string, PartidoBracket[]>();
+  for (const p of partidos) {
+    if (!grupos.has(p.fase)) grupos.set(p.fase, []);
+    grupos.get(p.fase)!.push(p);
+  }
+  const rounds = [...grupos.entries()]
+    .map(([fase, ps]) => ({ fase, ps: ps.slice().sort((a, b) => a.orden - b.orden), min: Math.min(...ps.map((x) => x.orden)) }))
+    .sort((a, b) => a.min - b.min);
+
+  const maxN = Math.max(...rounds.map((r) => r.ps.length), 1);
+  const H = maxN * BR_UNIT;
+  const colW = BR_W + BR_COLGAP;
+  const totalW = rounds.length * colW;
+  const centerOf = (n: number, i: number) => BR_HEAD + (H * (i + 0.5)) / n;
+
+  // Líneas conectoras (cuando la ronda siguiente es la mitad = eliminación)
+  const lines: any[] = [];
+  for (let ri = 0; ri < rounds.length - 1; ri++) {
+    const cur = rounds[ri];
+    const next = rounds[ri + 1];
+    if (next.ps.length !== Math.ceil(cur.ps.length / 2)) continue;
+    const xChildR = ri * colW + BR_W;
+    const xMid = xChildR + BR_COLGAP / 2;
+    next.ps.forEach((_, j) => {
+      const c0 = centerOf(cur.ps.length, 2 * j);
+      const hasTwin = 2 * j + 1 < cur.ps.length;
+      const c1 = hasTwin ? centerOf(cur.ps.length, 2 * j + 1) : c0;
+      const cp = centerOf(next.ps.length, j);
+      lines.push(<View key={`l0-${ri}-${j}`} style={[styles.brHLine, { left: xChildR, top: c0, width: BR_COLGAP / 2 }]} />);
+      if (hasTwin) lines.push(<View key={`l1-${ri}-${j}`} style={[styles.brHLine, { left: xChildR, top: c1, width: BR_COLGAP / 2 }]} />);
+      if (hasTwin) lines.push(<View key={`v-${ri}-${j}`} style={[styles.brVLine, { left: xMid, top: Math.min(c0, c1), height: Math.abs(c1 - c0) }]} />);
+      lines.push(<View key={`lp-${ri}-${j}`} style={[styles.brHLine, { left: xMid, top: cp, width: BR_COLGAP / 2 }]} />);
+    });
+  }
+
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ paddingVertical: spacing.sm }}>
+      <View style={{ width: totalW, height: H + BR_HEAD }}>
+        {lines}
+        {rounds.map((r, ri) => (
+          <Text key={`h-${r.fase}`} style={[styles.brColTitle, { left: ri * colW, width: BR_W }]}>
+            {FASE_LABEL[r.fase] || r.fase}
+          </Text>
+        ))}
+        {rounds.map((r, ri) =>
+          r.ps.map((p, i) => (
+            <View key={p.id} style={{ position: 'absolute', left: ri * colW, top: centerOf(r.ps.length, i) - BR_H / 2, width: BR_W }}>
+              <BracketMatchMini p={p} />
+            </View>
+          )),
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -316,26 +378,7 @@ export default function TorneoDetalle() {
               ) : (bracketQ.data?.length ?? 0) === 0 ? (
                 <Text style={styles.cuadroVacio}>El cuadro todavía no tiene partidos.</Text>
               ) : (
-                (() => {
-                  const partidos = bracketQ.data!;
-                  // Agrupar por fase, ordenar grupos por el menor 'orden'
-                  const grupos = new Map<string, PartidoBracket[]>();
-                  for (const p of partidos) {
-                    if (!grupos.has(p.fase)) grupos.set(p.fase, []);
-                    grupos.get(p.fase)!.push(p);
-                  }
-                  const fasesOrdenadas = [...grupos.entries()].sort(
-                    (a, b) => Math.min(...a[1].map((x) => x.orden)) - Math.min(...b[1].map((x) => x.orden)),
-                  );
-                  return fasesOrdenadas.map(([fase, ps]) => (
-                    <View key={fase} style={{ marginTop: spacing.md }}>
-                      <Text style={styles.faseTitle}>{FASE_LABEL[fase] || fase}</Text>
-                      <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
-                        {ps.map((p) => <BracketMatch key={p.id} p={p} />)}
-                      </View>
-                    </View>
-                  ));
-                })()
+                <BracketTree partidos={bracketQ.data!} />
               )}
             </View>
           )}
@@ -479,18 +522,22 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipTextOn: { color: colors.white },
   cuadroVacio: { color: colors.gray400, fontSize: 13, marginTop: spacing.md },
-  faseTitle: { color: colors.white, fontSize: 14, fontWeight: '800' },
-  matchCard: {
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.lg, padding: spacing.sm,
+  // Llave (árbol)
+  brColTitle: {
+    position: 'absolute', top: 4, textAlign: 'center',
+    color: colors.gray500, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5,
   },
-  matchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  matchPareja: { flex: 1, color: colors.gray400, fontSize: 13 },
-  matchGanador: { color: colors.white, fontWeight: '800' },
-  matchSets: { flexDirection: 'row', gap: 8 },
-  matchSet: { color: colors.gray400, fontSize: 13, fontWeight: '700', minWidth: 12, textAlign: 'center' },
-  matchDivider: { height: 1, backgroundColor: colors.border, marginVertical: 6 },
-  matchMeta: { color: colors.gray500, fontSize: 11, marginTop: 6 },
+  brMatch: {
+    height: BR_H, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md, paddingHorizontal: spacing.sm, justifyContent: 'center',
+  },
+  brTeamRow: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 22 },
+  brTeam: { flex: 1, color: colors.gray400, fontSize: 12 },
+  brScore: { color: colors.gray500, fontSize: 12, fontWeight: '700' },
+  brWin: { color: colors.white, fontWeight: '800' },
+  brTeamDiv: { height: 1, backgroundColor: colors.border },
+  brHLine: { position: 'absolute', height: 1.5, backgroundColor: BR_LINE },
+  brVLine: { position: 'absolute', width: 1.5, backgroundColor: BR_LINE },
   inscCatTitle: { color: colors.gray400, fontSize: 13, fontWeight: '700' },
   parejaCard: {
     flexDirection: 'row', alignItems: 'center',
