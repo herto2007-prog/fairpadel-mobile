@@ -11,13 +11,14 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Alert,
   StyleSheet,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import { Shield, MapPin, Calendar, Edit3, LogOut, X, Camera, KeyRound, Bell, ChevronRight, Ticket } from 'lucide-react-native';
+import { Shield, MapPin, Calendar, Edit3, LogOut, X, Camera, KeyRound, Bell, ChevronRight, Ticket, Power } from 'lucide-react-native';
 import { useAuth } from '../../src/features/auth/context/AuthContext';
 import { perfilService, PerfilJugador } from '../../src/services/perfilService';
 import { PasswordModal } from '../../src/features/perfil/PasswordModal';
@@ -154,6 +155,29 @@ export default function PerfilTab() {
     router.replace('/login');
   };
 
+  const handleDesactivar = () => {
+    Alert.alert(
+      'Desactivar mi cuenta',
+      'No vas a poder iniciar sesión. Tu historial se conserva y podés pedir que la reactivemos cuando quieras.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Desactivar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await perfilService.desactivarCuenta();
+              await logout();
+              router.replace('/login');
+            } catch {
+              Alert.alert('Error', 'No se pudo desactivar la cuenta. Intentá de nuevo.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const cambiarFoto = async () => {
     if (subiendoFoto) return;
     const res = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.7 });
@@ -274,6 +298,10 @@ export default function PerfilTab() {
               <LogOut size={18} color={colors.red500} />
               <Text style={styles.logoutText}>Cerrar sesión</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.desactivarBtn} onPress={handleDesactivar} activeOpacity={0.7}>
+              <Power size={15} color={colors.gray500} />
+              <Text style={styles.desactivarText}>Desactivar mi cuenta</Text>
+            </TouchableOpacity>
           </View>
 
           <EditModal
@@ -356,6 +384,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg, paddingVertical: spacing.md,
   },
   logoutText: { color: colors.red500, fontWeight: '700', fontSize: 15 },
+  desactivarBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: spacing.sm,
+  },
+  desactivarText: { color: colors.gray500, fontWeight: '600', fontSize: 13 },
   // Modal
   modalRoot: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalCard: {
