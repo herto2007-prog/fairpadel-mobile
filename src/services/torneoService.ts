@@ -74,6 +74,7 @@ export interface TorneoDetalle extends TorneoListItem {
 
 // ── Cuadro / bracket ──
 export interface JugadorBracket {
+  id?: string | null;
   nombre: string;
   apellido: string;
   fotoUrl?: string | null;
