@@ -14,7 +14,6 @@ import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  LogOut,
   MapPin,
   Trophy,
   Sparkles,
@@ -25,6 +24,7 @@ import {
   Bell,
   Plus,
   X,
+  Flame,
 } from 'lucide-react-native';
 import { useAuth } from '../../src/features/auth/context/AuthContext';
 import { jugadorService, FeedItem, NodoAgenda, Agenda } from '../../src/services/jugadorService';
@@ -50,22 +50,43 @@ function hace(fechaISO: string): string {
   return `hace ${Math.floor(dias / 7)} sem`;
 }
 
+function saludo(): string {
+  const h = new Date().getHours();
+  if (h < 12) return '¡Buenos días';
+  if (h < 19) return '¡Buenas tardes';
+  return '¡Buenas noches';
+}
+
+function StatBig({ icon, tint, value, label }: { icon: React.ReactNode; tint: string; value: string | number; label: string }) {
+  return (
+    <View style={styles.statBig}>
+      <View style={[styles.statBigChip, { backgroundColor: `${tint}29` }]}>{icon}</View>
+      <Text style={styles.statBigValue}>{value}</Text>
+      <Text style={styles.statBigLabel}>{label}</Text>
+    </View>
+  );
+}
+
 function HeroProximoPartido({ agenda }: { agenda: Agenda }) {
   const p = agenda.proximoPartido!;
   const sedeCancha = [p.sede, p.cancha].filter(Boolean).join(' · ');
   return (
-    <View style={styles.hero}>
-      <Text style={styles.heroKicker}>TU PRÓXIMO PARTIDO</Text>
-      <Text style={styles.heroMatch}>
+    <View style={styles.proxCard}>
+      <View style={styles.proxAccent} />
+      <Text style={styles.proxKicker}>TU PRÓXIMO PARTIDO</Text>
+      <Text style={styles.proxMatch}>
         {p.fase}
         {p.rival ? ` · vs ${p.rival}` : ''}
       </Text>
-      <Text style={styles.heroWhen}>{cuando(p)}</Text>
-      <Text style={styles.heroTorneo} numberOfLines={1}>{agenda.torneo.nombre}</Text>
+      <View style={styles.proxMeta}>
+        <CalendarClock size={15} color={colors.gray400} />
+        <Text style={styles.proxMetaText}>{cuando(p)}</Text>
+      </View>
+      <Text style={styles.proxTorneo} numberOfLines={1}>{agenda.torneo.nombre}</Text>
       {sedeCancha ? (
-        <View style={styles.heroMeta}>
-          <MapPin size={13} color="rgba(255,255,255,0.9)" />
-          <Text style={styles.heroMetaText}>{sedeCancha}</Text>
+        <View style={styles.proxMeta}>
+          <MapPin size={15} color={colors.gray400} />
+          <Text style={styles.proxMetaText}>{sedeCancha}</Text>
         </View>
       ) : null}
     </View>
@@ -220,7 +241,7 @@ function ReaccionadoresModal({ item, onClose }: { item: FeedItem | null; onClose
 }
 
 export default function HomeTab() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const [modalItem, setModalItem] = useState<FeedItem | null>(null);
@@ -256,11 +277,6 @@ export default function HomeTab() {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    router.replace('/login');
-  };
-
   const refetchAll = () => {
     agendaQ.refetch();
     feedQ.refetch();
@@ -269,6 +285,10 @@ export default function HomeTab() {
   const agendaConPartido = (agendaQ.data ?? []).find((a) => a.proximoPartido);
   const feedItems = feedQ.data ?? [];
   const cargando = agendaQ.isLoading || feedQ.isLoading;
+
+  const cat = perfilQ.data?.categoria?.nombre;
+  const pos = perfilQ.data?.ranking?.[0]?.posicion;
+  const terceraLinea = [cat, pos ? `Ranking #${pos}` : null].filter(Boolean).join(' · ') || 'Bienvenido a FairPadel';
 
   return (
     <>
@@ -284,31 +304,28 @@ export default function HomeTab() {
         />
       }
     >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.navigate('/perfil')} activeOpacity={0.85}>
-          {perfilQ.data?.fotoUrl ? (
-            <Image source={{ uri: perfilQ.data.fotoUrl }} style={styles.headerAvatar} />
-          ) : (
-            <View style={[styles.headerAvatar, styles.headerAvatarFallback]}>
-              <Text style={styles.headerAvatarText}>{`${user?.nombre?.[0] ?? ''}${user?.apellido?.[0] ?? ''}`.toUpperCase()}</Text>
-            </View>
-          )}
+      <View style={styles.hero}>
+        <View style={styles.heroMotif} />
+        <TouchableOpacity style={styles.heroBell} onPress={() => router.push('/notificaciones')} activeOpacity={0.8}>
+          <Bell size={19} color={colors.white} />
+          {noLeidas > 0 && <View style={styles.heroBellDot} />}
         </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>Buenas,</Text>
-          <Text style={styles.name} numberOfLines={1}>{user?.nombre} {user?.apellido}</Text>
+        <View style={styles.heroRow}>
+          <TouchableOpacity onPress={() => router.navigate('/perfil')} activeOpacity={0.85}>
+            {perfilQ.data?.fotoUrl ? (
+              <Image source={{ uri: perfilQ.data.fotoUrl }} style={styles.heroAvatar} />
+            ) : (
+              <View style={[styles.heroAvatar, styles.heroAvatarFallback]}>
+                <Text style={styles.heroAvatarText}>{`${user?.nombre?.[0] ?? ''}${user?.apellido?.[0] ?? ''}`.toUpperCase()}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <View style={styles.heroTextWrap}>
+            <Text style={styles.heroGreeting}>{saludo()},</Text>
+            <Text style={styles.heroName} numberOfLines={1}>{user?.nombre} {user?.apellido}!</Text>
+            <Text style={styles.heroThird} numberOfLines={1}>{terceraLinea}</Text>
+          </View>
         </View>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/notificaciones')} activeOpacity={0.8}>
-          <Bell size={18} color={colors.gray400} />
-          {noLeidas > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{noLeidas > 9 ? '9+' : noLeidas}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.iconBtn, { marginLeft: spacing.sm }]} onPress={handleLogout} activeOpacity={0.8}>
-          <LogOut size={18} color={colors.gray400} />
-        </TouchableOpacity>
       </View>
 
       {cargando ? (
@@ -317,19 +334,10 @@ export default function HomeTab() {
         </View>
       ) : (
         <>
-          <View style={styles.statsCard}>
-            <View style={styles.statMini}>
-              <Text style={styles.statValue}>{perfilQ.data?.stats.torneosJugados ?? 0}</Text>
-              <Text style={styles.statLabel}>Torneos</Text>
-            </View>
-            <View style={styles.statMini}>
-              <Text style={styles.statValue}>{perfilQ.data?.partidos.ganados ?? 0}</Text>
-              <Text style={styles.statLabel}>Ganados</Text>
-            </View>
-            <View style={styles.statMini}>
-              <Text style={styles.statValue}>{perfilQ.data?.partidos.rachaActual ?? 0}</Text>
-              <Text style={styles.statLabel}>Racha</Text>
-            </View>
+          <View style={styles.statsRow}>
+            <StatBig tint={colors.amber500} icon={<Trophy size={21} color={colors.amber500} />} value={perfilQ.data?.stats.torneosJugados ?? 0} label="Torneos" />
+            <StatBig tint={colors.blue500} icon={<Activity size={21} color={colors.blue500} />} value={perfilQ.data?.partidos.ganados ?? 0} label="Ganados" />
+            <StatBig tint={colors.primary} icon={<Flame size={21} color={colors.primary} />} value={perfilQ.data?.partidos.rachaActual ?? 0} label="Racha" />
           </View>
 
           {agendaConPartido ? <HeroProximoPartido agenda={agendaConPartido} /> : <HeroVacio />}
@@ -374,65 +382,54 @@ export default function HomeTab() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  headerAvatar: { width: 46, height: 46, borderRadius: 23, marginRight: spacing.md, borderWidth: 2, borderColor: colors.primary },
-  headerAvatarFallback: { backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
-  headerAvatarText: { color: colors.white, fontSize: 17, fontWeight: '800' },
-  greeting: { color: colors.gray400, fontSize: 14 },
-  name: { color: colors.white, fontSize: 24, fontWeight: 'bold', marginTop: 2 },
-  statsCard: {
-    flexDirection: 'row', marginHorizontal: spacing.lg, marginBottom: spacing.lg,
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.xl, padding: spacing.md,
-  },
-  statMini: { flex: 1, alignItems: 'center' },
-  statValue: { color: colors.primary, fontSize: 22, fontWeight: '800' },
-  statLabel: { color: colors.gray400, fontSize: 12, marginTop: 2 },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    top: -3,
-    right: -3,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: colors.background,
-  },
-  badgeText: { color: colors.white, fontSize: 10, fontWeight: '800' },
   loading: { paddingTop: 60, alignItems: 'center' },
-  // Hero próximo partido
+  // HERO banner (estilo modelo: foto grande + saludo + campana)
   hero: {
-    marginHorizontal: spacing.lg,
-    backgroundColor: colors.primary,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
-    overflow: 'hidden',
+    marginHorizontal: spacing.lg, marginBottom: spacing.xl,
+    backgroundColor: colors.primary, borderRadius: 24,
+    paddingVertical: 22, paddingHorizontal: 20, overflow: 'hidden',
+    shadowColor: colors.primary, shadowOpacity: 0.35, shadowRadius: 16, shadowOffset: { width: 0, height: 10 }, elevation: 10,
   },
-  heroKicker: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  heroMatch: { color: colors.white, fontSize: 20, fontWeight: '800', marginTop: 8 },
-  heroWhen: { color: colors.white, fontSize: 15, fontWeight: '700', marginTop: 4 },
-  heroTorneo: { color: 'rgba(255,255,255,0.9)', fontSize: 13, marginTop: 8 },
-  heroMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
-  heroMetaText: { color: 'rgba(255,255,255,0.9)', fontSize: 12 },
+  heroMotif: {
+    position: 'absolute', right: -36, top: -36, width: 150, height: 150, borderRadius: 75,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  heroBell: {
+    position: 'absolute', top: 16, right: 16, width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center',
+  },
+  heroBellDot: { position: 'absolute', top: 9, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.white },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 15, paddingRight: 44 },
+  heroAvatar: { width: 74, height: 74, borderRadius: 37, borderWidth: 3, borderColor: 'rgba(255,255,255,0.65)' },
+  heroAvatarFallback: { backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  heroAvatarText: { color: colors.white, fontSize: 24, fontWeight: '800' },
+  heroTextWrap: { flex: 1, minWidth: 0 },
+  heroGreeting: { color: 'rgba(255,255,255,0.85)', fontSize: 15 },
+  heroName: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 1 },
+  heroThird: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 5 },
+  // Stats grandes con profundidad
+  statsRow: { flexDirection: 'row', gap: spacing.md - 2, paddingHorizontal: spacing.lg, marginBottom: spacing.xl },
+  statBig: {
+    flex: 1, backgroundColor: '#161b26', borderWidth: 1, borderColor: colors.border,
+    borderRadius: 20, paddingVertical: spacing.md, paddingHorizontal: 12,
+    shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6,
+  },
+  statBigChip: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  statBigValue: { color: colors.white, fontSize: 24, fontWeight: '800' },
+  statBigLabel: { color: colors.gray400, fontSize: 12, marginTop: 2 },
+  // Próximo partido (tarjeta oscura con acento rojo)
+  proxCard: {
+    marginHorizontal: spacing.lg, marginBottom: spacing.xl,
+    backgroundColor: '#161b26', borderWidth: 1, borderColor: '#2a2030', borderRadius: 22,
+    padding: spacing.lg, overflow: 'hidden', position: 'relative',
+    shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 10 }, elevation: 8,
+  },
+  proxAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: colors.primary },
+  proxKicker: { color: colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  proxMatch: { color: colors.white, fontSize: 18, fontWeight: '800', marginTop: 8 },
+  proxMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
+  proxMetaText: { color: colors.gray400, fontSize: 13 },
+  proxTorneo: { color: colors.gray400, fontSize: 13, marginTop: 10 },
   // Hero vacío
   heroEmpty: {
     marginHorizontal: spacing.lg,
