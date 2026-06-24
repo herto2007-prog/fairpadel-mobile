@@ -10,15 +10,21 @@ import { useAuth } from '../../src/features/auth/context/AuthContext';
 import { formatDatePYShort } from '../../src/utils/date';
 import { colors, spacing, radius } from '../../src/lib/theme';
 
+const GOLD = '#fbbf24';
+
 type Jug = { id?: string; nombre: string; apellido: string; fotoUrl?: string | null };
 
-function Avatar({ j, size = 78 }: { j?: Jug | null; size?: number }) {
+function Avatar({ j, size = 78, overlap = false }: { j?: Jug | null; size?: number; overlap?: boolean }) {
   const ini = j ? `${j.nombre?.[0] ?? ''}${j.apellido?.[0] ?? ''}`.toUpperCase() : '?';
-  const base = { width: size, height: size, borderRadius: size / 2, borderWidth: 3, borderColor: '#fbbf24' };
+  const ring = size >= 70 ? 3 : 2.5;
+  const base = {
+    width: size, height: size, borderRadius: size / 2, borderWidth: ring, borderColor: GOLD,
+    ...(overlap ? { marginLeft: -14 } : null),
+  };
   return j?.fotoUrl ? (
     <Image source={{ uri: j.fotoUrl }} style={base} />
   ) : (
-    <View style={[base, styles.avFallback]}><Text style={styles.avIni}>{ini}</Text></View>
+    <View style={[base, styles.avFallback]}><Text style={[styles.avIni, { fontSize: size >= 70 ? 22 : 14 }]}>{ini}</Text></View>
   );
 }
 
@@ -64,6 +70,8 @@ export default function CampeonesScreen() {
     }
   };
 
+  const total = q.data?.length ?? 0;
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
@@ -78,17 +86,31 @@ export default function CampeonesScreen() {
 
       {q.isLoading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
-      ) : (q.data?.length ?? 0) === 0 ? (
+      ) : total === 0 ? (
         <View style={styles.empty}>
           <Trophy size={40} color={colors.gray500} />
           <Text style={styles.emptyText}>Todavía no hay campeones cargados.</Text>
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}>
+          {/* Hero dorado */}
+          <View style={styles.hero}>
+            <View style={styles.heroIcon}><Trophy size={24} color={GOLD} /></View>
+            <View>
+              <Text style={styles.heroNum}>{total}</Text>
+              <Text style={styles.heroLabel}>{total === 1 ? 'categoría coronada' : 'categorías coronadas'}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.seccion}>PALMARÉS</Text>
+
           {q.data!.map((c) => (
             <TouchableOpacity key={c.categoriaId} style={styles.row} activeOpacity={0.8} onPress={() => setSel(c)}>
-              <View style={styles.rowIcon}><Trophy size={18} color="#fbbf24" /></View>
-              <View style={{ flex: 1 }}>
+              <View style={styles.rowAvs}>
+                <Avatar j={c.campeon.jugador1} size={42} />
+                {c.campeon.jugador2 ? <Avatar j={c.campeon.jugador2} size={42} overlap /> : null}
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.rowCat}>{c.categoriaNombre}</Text>
                 <Text style={styles.rowNombres} numberOfLines={1}>
                   {[c.campeon.jugador1, c.campeon.jugador2].filter(Boolean).map((j) => `${j!.nombre} ${j!.apellido}`).join(' / ')}
@@ -116,7 +138,7 @@ export default function CampeonesScreen() {
             <View style={[styles.confeti, { bottom: 150, left: 44, backgroundColor: '#34d399' }]} />
             <View style={[styles.confeti, { bottom: 110, right: 64, backgroundColor: '#f59e0b' }]} />
 
-            <Trophy size={46} color="#fbbf24" />
+            <View style={styles.trofeoHalo}><Trophy size={46} color={GOLD} /></View>
             <Text style={styles.campeonesTxt}>CAMPEONES</Text>
 
             <View style={styles.parejaWrap}>
@@ -131,6 +153,8 @@ export default function CampeonesScreen() {
                 </View>
               )}
             </View>
+
+            <View style={styles.divider} />
 
             <Text style={styles.catTxt}>{(sel.categoriaNombre || '').toUpperCase()}</Text>
             {nombre ? <Text style={styles.torneoTxt}>{nombre}</Text> : null}
@@ -163,8 +187,24 @@ const styles = StyleSheet.create({
   sub: { color: colors.gray400, fontSize: 13, marginTop: 1 },
   empty: { alignItems: 'center', gap: spacing.md, paddingVertical: 60 },
   emptyText: { color: colors.gray400, fontSize: 14 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm },
-  rowIcon: { width: 38, height: 38, borderRadius: radius.md, backgroundColor: 'rgba(251,191,36,0.12)', alignItems: 'center', justifyContent: 'center' },
+  // Hero dorado
+  hero: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    backgroundColor: 'rgba(251,191,36,0.10)', borderWidth: 1, borderColor: 'rgba(251,191,36,0.28)',
+    borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.lg,
+  },
+  heroIcon: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: 'rgba(251,191,36,0.18)', alignItems: 'center', justifyContent: 'center' },
+  heroNum: { color: GOLD, fontSize: 24, fontWeight: '800', lineHeight: 26 },
+  heroLabel: { color: '#d6b25e', fontSize: 12, marginTop: 2 },
+  seccion: { color: GOLD, fontSize: 11, fontWeight: '800', letterSpacing: 1, marginBottom: spacing.sm, marginLeft: 2 },
+  // Filas-tarjeta con profundidad
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    backgroundColor: '#161b26', borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg,
+    padding: spacing.md, marginBottom: spacing.md - 2,
+    shadowColor: '#000', shadowOpacity: 0.38, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 5,
+  },
+  rowAvs: { flexDirection: 'row', alignItems: 'center' },
   rowCat: { color: colors.white, fontSize: 15, fontWeight: '700' },
   rowNombres: { color: colors.gray400, fontSize: 12, marginTop: 2 },
   // Overlay card
@@ -172,19 +212,21 @@ const styles = StyleSheet.create({
   closeBtn: { position: 'absolute', right: spacing.lg, width: 40, height: 40, borderRadius: 20, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
   card: { width: '100%', maxWidth: 360, backgroundColor: colors.background, borderRadius: radius.xl, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg, alignItems: 'center', overflow: 'hidden' },
   confeti: { position: 'absolute', width: 8, height: 8, borderRadius: 1 },
-  campeonesTxt: { fontSize: 30, fontWeight: '800', color: '#fbbf24', letterSpacing: 2, marginTop: 6 },
+  trofeoHalo: { width: 92, height: 92, borderRadius: 46, backgroundColor: 'rgba(251,191,36,0.10)', alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  campeonesTxt: { fontSize: 30, fontWeight: '800', color: GOLD, letterSpacing: 2, marginTop: 6 },
   parejaWrap: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.lg },
   jugBox: { alignItems: 'center' },
   jugNombre: { color: colors.white, fontSize: 13, fontWeight: '600', marginTop: 8, textAlign: 'center' },
   avFallback: { backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
-  avIni: { color: colors.white, fontSize: 22, fontWeight: '700' },
-  catTxt: { fontSize: 17, fontWeight: '800', color: '#fbbf24', letterSpacing: 1, marginTop: spacing.lg },
+  avIni: { color: colors.white, fontWeight: '700' },
+  divider: { width: 60, height: 1, backgroundColor: 'rgba(251,191,36,0.4)', marginTop: spacing.lg, marginBottom: spacing.sm },
+  catTxt: { fontSize: 17, fontWeight: '800', color: GOLD, letterSpacing: 1, marginTop: spacing.sm },
   torneoTxt: { fontSize: 15, color: colors.white, fontWeight: '500', marginTop: 10 },
   fechaTxt: { fontSize: 13, color: colors.gray400, marginTop: 3 },
   fp: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md, opacity: 0.75 },
   fpLogo: { width: 22, height: 22, borderRadius: 6, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   fpLogoTxt: { color: colors.white, fontSize: 10, fontWeight: '800' },
   fpTxt: { color: colors.gray500, fontSize: 11 },
-  shareBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#fbbf24', paddingVertical: 11, paddingHorizontal: 24, borderRadius: radius.md, marginTop: spacing.lg },
+  shareBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: GOLD, paddingVertical: 11, paddingHorizontal: 24, borderRadius: radius.md, marginTop: spacing.lg },
   shareTxt: { color: '#3a2c00', fontSize: 14, fontWeight: '700' },
 });
