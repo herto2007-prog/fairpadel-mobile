@@ -158,6 +158,16 @@ export default function MisInscripcionesScreen() {
 
   const inscripciones = data ?? [];
 
+  const now = new Date();
+  const hoy = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const esPasada = (ins: MiInscripcion) => {
+    if (ins.estado === 'CANCELADA') return true;
+    const f = ymd(ins.tournament?.fechaInicio);
+    return !!f && f < hoy;
+  };
+  const activas = inscripciones.filter((i) => !esPasada(i));
+  const pasadas = inscripciones.filter(esPasada);
+
   const confirmarCancelar = (ins: MiInscripcion) => {
     Alert.alert(
       'Cancelar inscripción',
@@ -206,15 +216,34 @@ export default function MisInscripcionesScreen() {
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
           }
         >
-          {inscripciones.map((ins) => (
-            <InscripcionCard
-              key={ins.id}
-              ins={ins}
-              esJugador1={ins.jugador1Id === user?.id}
-              cancelando={cancelarMut.isPending && cancelarMut.variables === ins.id}
-              onCancelar={() => confirmarCancelar(ins)}
-            />
-          ))}
+          {activas.length > 0 && (
+            <>
+              <Text style={styles.groupLabel}>Activas</Text>
+              {activas.map((ins) => (
+                <InscripcionCard
+                  key={ins.id}
+                  ins={ins}
+                  esJugador1={ins.jugador1Id === user?.id}
+                  cancelando={cancelarMut.isPending && cancelarMut.variables === ins.id}
+                  onCancelar={() => confirmarCancelar(ins)}
+                />
+              ))}
+            </>
+          )}
+          {pasadas.length > 0 && (
+            <>
+              <Text style={[styles.groupLabel, activas.length > 0 && { marginTop: spacing.lg }]}>Finalizadas</Text>
+              {pasadas.map((ins) => (
+                <InscripcionCard
+                  key={ins.id}
+                  ins={ins}
+                  esJugador1={ins.jugador1Id === user?.id}
+                  cancelando={cancelarMut.isPending && cancelarMut.variables === ins.id}
+                  onCancelar={() => confirmarCancelar(ins)}
+                />
+              ))}
+            </>
+          )}
         </ScrollView>
       )}
     </View>
@@ -236,6 +265,7 @@ const styles = StyleSheet.create({
   },
   title: { color: colors.white, fontSize: 22, fontWeight: 'bold' },
   list: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xl, gap: spacing.md },
+  groupLabel: { color: colors.gray500, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: -2 },
   card: {
     backgroundColor: colors.card,
     borderWidth: 1,

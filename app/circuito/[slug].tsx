@@ -118,7 +118,12 @@ export default function CircuitoDetalleScreen() {
                       onPress={() => router.push(`/jugador/${f.jugadorId}`)}
                       style={[styles.rankRow, esYo && styles.rankRowYo]}
                     >
-                      <Text style={[styles.pos, f.posicion <= 3 && styles.posTop]}>{f.posicion}</Text>
+                      <Text style={[
+                        styles.pos,
+                        f.posicion === 1 && { color: '#facc15' },
+                        f.posicion === 2 && { color: '#d1d5db' },
+                        f.posicion === 3 && { color: '#d97706' },
+                      ]}>{f.posicion}</Text>
                       <Avatar uri={f.jugador?.fotoUrl} ini={ini} />
                       <View style={{ flex: 1 }}>
                         <Text style={styles.rankName} numberOfLines={1}>
@@ -129,7 +134,10 @@ export default function CircuitoDetalleScreen() {
                           {f.jugador?.categoriaActual?.nombre ? ` · ${f.jugador.categoriaActual.nombre}` : ''}
                         </Text>
                       </View>
-                      <Text style={styles.pts}>{f.puntosAcumulados}</Text>
+                      <View style={styles.ptsBox}>
+                        <Text style={styles.pts}>{f.puntosAcumulados}</Text>
+                        <Text style={styles.ptsUnit}>pts</Text>
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
@@ -204,7 +212,9 @@ const styles = StyleSheet.create({
   avatarIni: { color: colors.gray400, fontSize: 13, fontWeight: '700' },
   rankName: { color: colors.white, fontSize: 14, fontWeight: '600' },
   rankSub: { color: colors.gray500, fontSize: 12, marginTop: 1 },
-  pts: { color: colors.white, fontSize: 16, fontWeight: '800' },
+  ptsBox: { alignItems: 'flex-end' },
+  pts: { color: colors.primary, fontSize: 17, fontWeight: '800' },
+  ptsUnit: { color: colors.gray500, fontSize: 10, fontWeight: '600', marginTop: -2 },
   // Torneo row
   torneoRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,

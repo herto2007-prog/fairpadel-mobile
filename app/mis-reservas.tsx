@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   title: { color: colors.white, fontSize: 22, fontWeight: 'bold' },
   card: {
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md,
+    borderRadius: radius.xl, padding: spacing.md, marginBottom: spacing.md,
   },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   sede: { color: colors.white, fontSize: 16, fontWeight: '700', flex: 1 },
