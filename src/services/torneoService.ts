@@ -80,6 +80,7 @@ export interface JugadorBracket {
   fotoUrl?: string | null;
 }
 export interface ParejaBracket {
+  id?: string | null; // id de la inscripción (la pareja) — para "seguir pareja"
   jugador1?: JugadorBracket | null;
   jugador2?: JugadorBracket | null;
 }

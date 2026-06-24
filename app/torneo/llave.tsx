@@ -19,16 +19,22 @@ const FASE_ORDER = ['ZONA', 'REPECHAJE', 'TREINTAYDOSAVOS', 'DIECISEISAVOS', 'OC
 
 const go = (id?: string | null) => { if (id) router.push(`/jugador/${id}`); };
 
-function SheetTeam({ j1, j2, sets, ganador, seguidos, userId, onTogglePareja }: {
-  j1?: JugadorBracket | null; j2?: JugadorBracket | null; sets: string; ganador: boolean;
-  seguidos: Set<string>; userId?: string | null; onTogglePareja: (ids: string[], siguiendo: boolean) => void;
+type TogglePareja = (inscripcionId: string, jugadorIds: string[], siguiendo: boolean) => void;
+
+function SheetTeam({ par, sets, ganador, seguidos, userId, onTogglePareja }: {
+  par?: ParejaBracket | null; sets: string; ganador: boolean;
+  seguidos: Set<string>; userId?: string | null; onTogglePareja: TogglePareja;
 }) {
+  const j1 = par?.jugador1;
+  const j2 = par?.jugador2;
   const Av = ({ j }: { j?: JugadorBracket | null }) =>
     j?.fotoUrl ? <Image source={{ uri: j.fotoUrl }} style={styles.shAv} /> : (
       <View style={[styles.shAv, styles.shAvFb]}><Text style={styles.shAvIni}>{`${j?.nombre?.[0] ?? ''}${j?.apellido?.[0] ?? ''}`.toUpperCase() || '?'}</Text></View>
     );
-  const seguibles = [j1?.id, j2?.id].filter((id): id is string => !!id && id !== userId);
-  const siguiendo = seguibles.some((id) => seguidos.has(id));
+  const jugadorIds = [j1?.id, j2?.id].filter((id): id is string => !!id);
+  const esMiPareja = !!userId && jugadorIds.includes(userId);
+  const puedeSeguir = !!par?.id && jugadorIds.length > 0 && !esMiPareja;
+  const siguiendo = jugadorIds.some((id) => seguidos.has(id));
   return (
     <View style={[styles.shTeam, ganador && styles.shTeamWin]}>
       <View style={styles.shAvs}>
@@ -46,10 +52,10 @@ function SheetTeam({ j1, j2, sets, ganador, seguidos, userId, onTogglePareja }: 
         ) : null}
       </View>
       <Text style={[styles.shScore, ganador && styles.shWin]}>{sets || '—'}</Text>
-      {seguibles.length > 0 ? (
+      {puedeSeguir ? (
         <TouchableOpacity
           style={[styles.shFollow, siguiendo && styles.shFollowOn]}
-          onPress={() => onTogglePareja(seguibles, siguiendo)}
+          onPress={() => onTogglePareja(par!.id!, jugadorIds, siguiendo)}
           hitSlop={6}
           activeOpacity={0.8}
         >
@@ -62,7 +68,7 @@ function SheetTeam({ j1, j2, sets, ganador, seguidos, userId, onTogglePareja }: 
 
 function DetalleSheet({ p, onClose, seguidos, userId, onTogglePareja }: {
   p: PartidoBracket | null; onClose: () => void;
-  seguidos: Set<string>; userId?: string | null; onTogglePareja: (ids: string[], siguiendo: boolean) => void;
+  seguidos: Set<string>; userId?: string | null; onTogglePareja: TogglePareja;
 }) {
   if (!p) return null;
   const sets = p.resultado ? [p.resultado.set1, p.resultado.set2, p.resultado.set3].filter(Boolean) as [number, number][] : [];
@@ -80,9 +86,9 @@ function DetalleSheet({ p, onClose, seguidos, userId, onTogglePareja }: {
             <Text style={styles.shTitle}>{FASE_LABEL[p.fase] || p.fase}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}><X size={22} color={colors.gray400} /></TouchableOpacity>
           </View>
-          <SheetTeam j1={p.inscripcion1?.jugador1} j2={p.inscripcion1?.jugador2} sets={s1} ganador={g1} seguidos={seguidos} userId={userId} onTogglePareja={onTogglePareja} />
+          <SheetTeam par={p.inscripcion1} sets={s1} ganador={g1} seguidos={seguidos} userId={userId} onTogglePareja={onTogglePareja} />
           <View style={styles.shDiv} />
-          <SheetTeam j1={p.inscripcion2?.jugador1} j2={p.inscripcion2?.jugador2} sets={s2} ganador={g2} seguidos={seguidos} userId={userId} onTogglePareja={onTogglePareja} />
+          <SheetTeam par={p.inscripcion2} sets={s2} ganador={g2} seguidos={seguidos} userId={userId} onTogglePareja={onTogglePareja} />
           {meta ? (
             <View style={styles.shMeta}><Text style={styles.shMetaText}>{meta}</Text></View>
           ) : (
@@ -128,21 +134,26 @@ export default function LlaveScreen() {
   const [detalle, setDetalle] = useState<PartidoBracket | null>(null);
   const [seguidos, setSeguidos] = useState<Set<string>>(new Set());
 
+  // Parejas seguidas EN ESTE TORNEO (concepto propio, NO la conexión social del Inicio).
   const seguidosQ = useQuery({
-    queryKey: ['siguiendo-ids', user?.id],
-    queryFn: () => socialService.getSiguiendoIds(user!.id),
-    enabled: !!user?.id,
+    queryKey: ['parejas-seguidas', id, user?.id],
+    queryFn: () => socialService.getParejasSeguidasTorneo(id),
+    enabled: !!user?.id && !!id,
   });
-  useEffect(() => { if (seguidosQ.data) setSeguidos(new Set(seguidosQ.data)); }, [seguidosQ.data]);
+  useEffect(() => {
+    if (seguidosQ.data) setSeguidos(new Set(seguidosQ.data.flatMap((p) => p.jugadorIds)));
+  }, [seguidosQ.data]);
 
-  const togglePareja = async (ids: string[], siguiendo: boolean) => {
+  const togglePareja = async (inscripcionId: string, jugadorIds: string[], siguiendo: boolean) => {
+    const previo = seguidos;
     const next = new Set(seguidos);
-    ids.forEach((id) => (siguiendo ? next.delete(id) : next.add(id)));
+    jugadorIds.forEach((jid) => (siguiendo ? next.delete(jid) : next.add(jid)));
     setSeguidos(next); // optimista
     try {
-      await Promise.all(ids.map((id) => (siguiendo ? socialService.dejarDeSeguir(id) : socialService.seguir(id))));
+      if (siguiendo) await socialService.dejarDeSeguirPareja(inscripcionId);
+      else await socialService.seguirPareja(inscripcionId);
     } catch {
-      setSeguidos(new Set(seguidos)); // revertir
+      setSeguidos(new Set(previo)); // revertir
     }
   };
 

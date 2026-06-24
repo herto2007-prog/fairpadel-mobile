@@ -88,4 +88,24 @@ export const socialService = {
     const res = await api.delete(`/users/${usuarioId}/seguidor`);
     return res.data;
   },
+
+  // ── "Seguir pareja" en el cuadro (para alentar / ver su camino). NO es social. ──
+
+  /** POST /jugador/parejas/:inscripcionId/seguir */
+  seguirPareja: async (inscripcionId: string): Promise<void> => {
+    await api.post(`/jugador/parejas/${inscripcionId}/seguir`);
+  },
+
+  /** DELETE /jugador/parejas/:inscripcionId/seguir */
+  dejarDeSeguirPareja: async (inscripcionId: string): Promise<void> => {
+    await api.delete(`/jugador/parejas/${inscripcionId}/seguir`);
+  },
+
+  /** GET /jugador/torneos/:tournamentId/parejas-seguidas — parejas seguidas en ese torneo */
+  getParejasSeguidasTorneo: async (
+    tournamentId: string,
+  ): Promise<{ inscripcionId: string; jugadorIds: string[] }[]> => {
+    const res = await api.get(`/jugador/torneos/${tournamentId}/parejas-seguidas`);
+    return res.data?.data ?? [];
+  },
 };
