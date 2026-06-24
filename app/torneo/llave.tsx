@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Image, StyleSheet } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Image, Animated, StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Route, LayoutGrid, X } from 'lucide-react-native';
-import { torneoService, PartidoBracket, JugadorBracket } from '../../src/services/torneoService';
+import { ArrowLeft, Route, LayoutGrid, X, Trophy } from 'lucide-react-native';
+import { torneoService, PartidoBracket, JugadorBracket, ParejaBracket } from '../../src/services/torneoService';
 import BracketTree, { involucraUsuario } from '../../src/components/BracketTree';
 import { useAuth } from '../../src/features/auth/context/AuthContext';
 import { formatDatePYShort } from '../../src/utils/date';
@@ -75,6 +75,31 @@ function DetalleSheet({ p, onClose }: { p: PartidoBracket | null; onClose: () =>
   );
 }
 
+function ChampionBanner({ pareja }: { pareja: ParejaBracket }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 6, tension: 60 }).start();
+  }, []);
+  const j1 = pareja.jugador1;
+  const j2 = pareja.jugador2;
+  const Av = ({ j }: { j?: JugadorBracket | null }) =>
+    j?.fotoUrl ? <Image source={{ uri: j.fotoUrl }} style={styles.chAv} /> : (
+      <View style={[styles.chAv, styles.chAvFb]}><Text style={styles.chAvIni}>{`${j?.nombre?.[0] ?? ''}${j?.apellido?.[0] ?? ''}`.toUpperCase() || '?'}</Text></View>
+    );
+  const nombre = [j1 ? `${j1.nombre} ${j1.apellido}` : '', j2 ? `${j2.nombre} ${j2.apellido}` : ''].filter(Boolean).join(' / ');
+  return (
+    <Animated.View style={[styles.champ, { opacity: anim, transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }] }]}>
+      <View style={styles.champTrophy}><Trophy size={24} color="#facc15" /></View>
+      <Text style={styles.champKicker}>CAMPEONES</Text>
+      <View style={styles.champAvs}>
+        <TouchableOpacity onPress={() => go(j1?.id)} disabled={!j1?.id}><Av j={j1} /></TouchableOpacity>
+        {j2 ? <TouchableOpacity style={{ marginLeft: -10 }} onPress={() => go(j2?.id)} disabled={!j2?.id}><Av j={j2} /></TouchableOpacity> : null}
+      </View>
+      <Text style={styles.champName} numberOfLines={2}>{nombre}</Text>
+    </Animated.View>
+  );
+}
+
 export default function LlaveScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -100,6 +125,7 @@ export default function LlaveScreen() {
 
   const partidos = bracketQ.data ?? [];
   const tengoCamino = !!user?.id && partidos.some((p) => involucraUsuario(p, user.id));
+  const campeon = partidos.find((p) => p.fase === 'FINAL' && p.ganador)?.ganador ?? null;
   // Mini-mapa: fases presentes en orden, marcando las decididas
   const fasesPresentes = FASE_ORDER.filter((f) => partidos.some((p) => p.fase === f));
   const faseDecidida = (f: string) => partidos.filter((p) => p.fase === f).every((p) => !!p.ganador || p.esBye);
@@ -136,6 +162,13 @@ export default function LlaveScreen() {
               );
             })}
           </ScrollView>
+
+          {/* Revelado de campeón */}
+          {campeon ? (
+            <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.sm }}>
+              <ChampionBanner pareja={campeon} />
+            </View>
+          ) : null}
 
           {/* Toggle Tu camino / Cuadro completo */}
           {tengoCamino && (
@@ -203,6 +236,19 @@ const styles = StyleSheet.create({
   mmText: { color: colors.gray500, fontSize: 11 },
   mmTextOn: { color: colors.white, fontWeight: '600' },
   mmLine: { width: 14, height: 1.5, backgroundColor: '#22303f', marginHorizontal: 6 },
+  // Champion banner
+  champ: {
+    backgroundColor: 'rgba(250,204,21,0.08)', borderWidth: 1, borderColor: 'rgba(250,204,21,0.35)',
+    borderRadius: 20, padding: spacing.lg, alignItems: 'center',
+    shadowColor: '#facc15', shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6,
+  },
+  champTrophy: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(250,204,21,0.16)', alignItems: 'center', justifyContent: 'center' },
+  champKicker: { color: '#facc15', fontSize: 12, fontWeight: '800', letterSpacing: 2, marginTop: 10 },
+  champAvs: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
+  chAv: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.dark100, borderWidth: 2, borderColor: '#facc15' },
+  chAvFb: { alignItems: 'center', justifyContent: 'center' },
+  chAvIni: { color: colors.white, fontSize: 15, fontWeight: '800' },
+  champName: { color: colors.white, fontSize: 16, fontWeight: '700', marginTop: 10, textAlign: 'center' },
   empty: { alignItems: 'center', paddingVertical: 60, paddingHorizontal: spacing.lg },
   emptyText: { color: colors.gray400, fontSize: 14, textAlign: 'center' },
   emptyText2: { color: colors.gray400, fontSize: 13, paddingHorizontal: spacing.lg, marginTop: spacing.md },

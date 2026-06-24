@@ -34,6 +34,26 @@ export function involucraUsuario(p: PartidoBracket, userId?: string | null): boo
 
 const goJugador = (id?: string | null) => { if (id) router.push(`/jugador/${id}`); };
 
+const pad = (n: number) => String(n).padStart(2, '0');
+function hoyYmd(): string { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function nowMins(): number { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+function horaAMins(h?: string | null): number | null {
+  if (!h) return null;
+  const [hh, mm] = h.split(':').map(Number);
+  return Number.isFinite(hh) ? (hh || 0) * 60 + (mm || 0) : null;
+}
+// 'vivo' | 'hoy' | null  (los finalizados se detectan por ganador)
+function estadoVivo(p: PartidoBracket): 'vivo' | 'hoy' | null {
+  if (p.ganador || p.esBye || !p.fecha) return null;
+  if (p.fecha.slice(0, 10) !== hoyYmd()) return null;
+  const hm = horaAMins(p.hora);
+  if (hm == null) return 'hoy';
+  const diff = nowMins() - hm;
+  if (diff >= 0 && diff <= 180) return 'vivo'; // arrancó y dentro de ~3h
+  if (diff < 0) return 'hoy';
+  return 'hoy';
+}
+
 function Avatar({ j }: { j?: JugadorBracket | null }) {
   if (j?.fotoUrl) return <Image source={{ uri: j.fotoUrl }} style={styles.av} />;
   const ini = j ? `${j.nombre?.[0] ?? ''}${j.apellido?.[0] ?? ''}`.toUpperCase() : '';
@@ -66,6 +86,7 @@ function MatchCard({ p, userId, onPress }: { p: PartidoBracket; userId?: string 
   const s1 = sets.map((s) => s[0]).join('  ');
   const s2 = sets.map((s) => s[1]).join('  ');
   const esTuyo = involucraUsuario(p, userId);
+  const vivo = estadoVivo(p);
   const meta = [p.fecha ? formatDatePYShort(p.fecha) : null, p.sede, p.cancha, p.hora ? `${p.hora}h` : null].filter(Boolean).join(' · ');
   return (
     <TouchableOpacity style={[styles.card, esTuyo && styles.cardTuyo]} activeOpacity={0.85} onPress={() => onPress(p)}>
@@ -74,7 +95,18 @@ function MatchCard({ p, userId, onPress }: { p: PartidoBracket; userId?: string 
         <TeamRow par={p.inscripcion1} origen={p.origen1} gana={gana1} score={s1} />
         <View style={styles.div} />
         <TeamRow par={p.inscripcion2} origen={p.origen2} gana={gana2} score={s2} bye={p.esBye} />
-        {meta ? <View style={styles.footer}><Text style={styles.meta} numberOfLines={1}>{meta}</Text></View> : null}
+        {vivo === 'vivo' ? (
+          <View style={[styles.footer, styles.footerVivo]}>
+            <View style={styles.vivoDot} />
+            <Text style={styles.vivoText}>En vivo{p.cancha ? ` · ${p.cancha}` : ''}</Text>
+          </View>
+        ) : vivo === 'hoy' ? (
+          <View style={styles.footer}>
+            <Text style={styles.hoyText}>Hoy{p.hora ? ` · ${p.hora} h` : ''}{p.cancha ? ` · ${p.cancha}` : ''}</Text>
+          </View>
+        ) : meta ? (
+          <View style={styles.footer}><Text style={styles.meta} numberOfLines={1}>{meta}</Text></View>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
@@ -139,7 +171,11 @@ const styles = StyleSheet.create({
   score: { color: colors.gray500, fontSize: 13, fontWeight: '700', letterSpacing: 1 },
   win: { color: '#fff', fontWeight: '700' },
   div: { height: 1, backgroundColor: colors.border },
-  footer: { paddingHorizontal: 13, paddingVertical: 7, backgroundColor: '#11151d', borderTopWidth: 1, borderTopColor: colors.border },
+  footer: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 13, paddingVertical: 7, backgroundColor: '#11151d', borderTopWidth: 1, borderTopColor: colors.border },
+  footerVivo: { backgroundColor: '#1a0f12', borderTopColor: '#2a2030' },
+  vivoDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#ef4444' },
+  vivoText: { color: '#ff8a8a', fontSize: 11, fontWeight: '600' },
+  hoyText: { color: colors.amber500, fontSize: 11, fontWeight: '600' },
   meta: { color: colors.gray500, fontSize: 11 },
   vacio: { color: colors.gray500, fontSize: 13, paddingHorizontal: spacing.lg },
 });
