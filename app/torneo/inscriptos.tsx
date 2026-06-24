@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Sty
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ChevronDown, ChevronUp, Users, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, ChevronUp, Users } from 'lucide-react-native';
 import { torneoService, JugadorInscrito, CategoriaInscritos } from '../../src/services/torneoService';
 import { colors, spacing, radius } from '../../src/lib/theme';
 
@@ -31,23 +31,27 @@ function Avatar({ j }: { j?: JugadorInscrito | null }) {
 }
 
 function ParejaRow({ p }: { p: { id: string; jugador1: JugadorInscrito; jugador2?: JugadorInscrito | null } }) {
-  const nombre = [
-    p.jugador1 ? `${p.jugador1.nombre} ${p.jugador1.apellido}` : '',
-    p.jugador2 ? `${p.jugador2.nombre} ${p.jugador2.apellido}` : null,
-  ].filter(Boolean).join('  /  ');
+  const go = (j?: JugadorInscrito | null) => j?.id && router.push(`/jugador/${j.id}`);
+  const n1 = p.jugador1 ? `${p.jugador1.nombre} ${p.jugador1.apellido}` : '';
+  const n2 = p.jugador2 ? `${p.jugador2.nombre} ${p.jugador2.apellido}` : '';
   return (
-    <TouchableOpacity
-      style={styles.parejaRow}
-      activeOpacity={0.7}
-      onPress={() => p.jugador1?.id && router.push(`/jugador/${p.jugador1.id}`)}
-    >
+    <View style={styles.parejaRow}>
       <View style={styles.avs}>
-        <Avatar j={p.jugador1} />
-        {p.jugador2 ? <View style={styles.avOverlap}><Avatar j={p.jugador2} /></View> : null}
+        <TouchableOpacity activeOpacity={0.7} onPress={() => go(p.jugador1)}>
+          <Avatar j={p.jugador1} />
+        </TouchableOpacity>
+        {p.jugador2 ? (
+          <TouchableOpacity style={styles.avOverlap} activeOpacity={0.7} onPress={() => go(p.jugador2)}>
+            <Avatar j={p.jugador2} />
+          </TouchableOpacity>
+        ) : null}
       </View>
-      <Text style={styles.parejaNombre} numberOfLines={1}>{nombre}</Text>
-      <ChevronRight size={16} color={colors.dark300} />
-    </TouchableOpacity>
+      <Text style={styles.parejaNombre} numberOfLines={2}>
+        <Text style={styles.jugadorLink} onPress={() => go(p.jugador1)}>{n1}</Text>
+        {n2 ? <Text style={styles.sep}>  /  </Text> : null}
+        {n2 ? <Text style={styles.jugadorLink} onPress={() => go(p.jugador2)}>{n2}</Text> : null}
+      </Text>
+    </View>
   );
 }
 
@@ -144,17 +148,23 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', gap: spacing.md, paddingVertical: 60 },
   emptyText: { color: colors.gray400, fontSize: 14 },
   grupoTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: spacing.sm, marginLeft: 2 },
-  catCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, marginBottom: spacing.sm, overflow: 'hidden' },
+  catCard: {
+    backgroundColor: '#161b26', borderWidth: 1, borderColor: colors.border, borderRadius: 16,
+    marginBottom: spacing.md - 2, overflow: 'hidden',
+    shadowColor: '#000', shadowOpacity: 0.38, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 5,
+  },
   catHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md },
-  catNombre: { flex: 1, color: colors.white, fontSize: 14, fontWeight: '600' },
-  catCount: { color: colors.gray400, fontSize: 12 },
+  catNombre: { flex: 1, color: colors.white, fontSize: 15, fontWeight: '600' },
+  catCount: { backgroundColor: 'rgba(223,37,49,0.16)', color: '#ff8a8a', fontSize: 12, fontWeight: '600', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' },
   catBody: { borderTopWidth: 1, borderTopColor: colors.border },
-  parejaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: colors.dark100 },
+  parejaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md - 2, paddingHorizontal: spacing.md, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: colors.border },
   avs: { flexDirection: 'row', alignItems: 'center' },
-  avOverlap: { marginLeft: -10 },
-  av: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.dark100, borderWidth: 2, borderColor: colors.card },
+  avOverlap: { marginLeft: -12 },
+  av: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.dark100, borderWidth: 2, borderColor: '#161b26' },
   avFallback: { alignItems: 'center', justifyContent: 'center' },
   avIni: { color: colors.gray400, fontSize: 12, fontWeight: '700' },
-  parejaNombre: { flex: 1, color: '#e5e7eb', fontSize: 13 },
+  parejaNombre: { flex: 1, fontSize: 14, lineHeight: 19 },
+  jugadorLink: { color: '#e5e7eb', fontSize: 14, fontWeight: '500' },
+  sep: { color: colors.gray500, fontSize: 14 },
   vacio: { color: colors.gray500, fontSize: 12, padding: spacing.md },
 });
