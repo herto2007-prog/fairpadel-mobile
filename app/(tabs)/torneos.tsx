@@ -99,13 +99,16 @@ function TorneoCard({ torneo }: { torneo: TorneoListItem }) {
 
         <View style={styles.cardFooter}>
           <View>
+            <Text style={styles.priceLabel}>Inscripción</Text>
             <Text style={styles.price}>{formatCurrency(Number(torneo.costoInscripcion))}</Text>
-            <View style={styles.metaItem}>
-              <Users size={12} color={colors.gray500} />
-              <Text style={styles.inscritos}>{torneo.totalInscritos} inscriptos</Text>
-            </View>
           </View>
-          <ChevronRight size={22} color={colors.gray500} />
+          <View style={styles.footerRight}>
+            <View style={styles.inscritosPill}>
+              <Users size={12} color={colors.gray400} />
+              <Text style={styles.inscritos}>{torneo.totalInscritos}</Text>
+            </View>
+            <ChevronRight size={22} color={colors.gray500} />
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -258,9 +261,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     overflow: 'hidden',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   cardDisabled: { opacity: 0.55 },
   flyer: {
@@ -302,8 +305,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 12,
   },
-  price: { color: colors.white, fontSize: 15, fontWeight: '800' },
-  inscritos: { color: colors.gray500, fontSize: 12, marginTop: 2 },
+  priceLabel: { color: colors.gray500, fontSize: 11, marginBottom: 1 },
+  price: { color: colors.white, fontSize: 16, fontWeight: '800' },
+  footerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  inscritosPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: colors.dark100, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4,
+  },
+  inscritos: { color: colors.gray400, fontSize: 12, fontWeight: '700' },
   centered: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, paddingHorizontal: spacing.xl },
   emptyTitle: { color: colors.white, fontSize: 16, fontWeight: '700', marginTop: spacing.md },
   emptyText: { color: colors.gray400, fontSize: 14, marginTop: 4, textAlign: 'center' },

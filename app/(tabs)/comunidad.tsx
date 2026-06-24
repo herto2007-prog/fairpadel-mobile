@@ -41,7 +41,7 @@ function JugadorRow({
         <Text style={styles.name} numberOfLines={1}>{j.nombre} {j.apellido}</Text>
         <View style={styles.meta}>
           {j.categoria && (
-            <View style={styles.metaItem}><Shield size={12} color={colors.blue500} /><Text style={styles.metaText}>{j.categoria.nombre}</Text></View>
+            <View style={styles.catPill}><Shield size={11} color="#85B7EB" /><Text style={styles.catPillText}>{j.categoria.nombre}</Text></View>
           )}
           {j.ciudad && (
             <View style={styles.metaItem}><MapPin size={12} color={colors.gray500} /><Text style={styles.metaText}>{j.ciudad}</Text></View>
@@ -196,11 +196,16 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, color: colors.white, fontSize: 15, paddingVertical: 0 },
   list: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xl, gap: spacing.sm },
   row: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md - 2,
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.lg, padding: spacing.md - 2,
+    borderRadius: radius.lg, padding: spacing.md,
   },
   avatar: { width: 48, height: 48, borderRadius: 24 },
+  catPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(55,138,221,0.14)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
+  },
+  catPillText: { color: '#85B7EB', fontSize: 11, fontWeight: '600' },
   avatarFallback: { backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.white, fontSize: 17, fontWeight: '800' },
   name: { color: colors.white, fontSize: 15, fontWeight: '700' },

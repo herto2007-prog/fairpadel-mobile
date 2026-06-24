@@ -38,10 +38,10 @@ const NIVEL_COLOR: Record<NivelLogro, string> = {
 const fmtFecha = (f: string | null) => (f ? f.split('-').reverse().slice(0, 2).join('/') : '');
 const cuando = (n: NodoAgenda) => (n.programado ? `${fmtFecha(n.fecha)} ${n.hora ?? ''}`.trim() : 'Por confirmar');
 
-function StatCard({ icon, value, label }: { icon: React.ReactNode; value: string | number; label: string }) {
+function StatCard({ icon, value, label, tint }: { icon: React.ReactNode; value: string | number; label: string; tint: string }) {
   return (
     <View style={styles.statCard}>
-      <View style={styles.statIcon}>{icon}</View>
+      <View style={[styles.statIcon, { backgroundColor: `${tint}22` }]}>{icon}</View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
@@ -125,10 +125,10 @@ export default function MiJuegoTab() {
         <>
           {/* Stat cards */}
           <View style={styles.statsGrid}>
-            <StatCard icon={<Trophy size={18} color={colors.amber500} />} value={perfil.stats.torneosGanados} label="Torneos ganados" />
-            <StatCard icon={<Activity size={18} color={colors.blue500} />} value={perfil.partidos.jugados} label="Partidos jugados" />
-            <StatCard icon={<Star size={18} color="#a78bfa" />} value={perfil.ranking[0]?.puntosTotales ?? 0} label="Puntos" />
-            <StatCard icon={<Flame size={18} color={colors.primary} />} value={perfil.partidos.rachaActual} label="Racha actual" />
+            <StatCard tint={colors.amber500} icon={<Trophy size={18} color={colors.amber500} />} value={perfil.stats.torneosGanados} label="Torneos ganados" />
+            <StatCard tint={colors.blue500} icon={<Activity size={18} color={colors.blue500} />} value={perfil.partidos.jugados} label="Partidos jugados" />
+            <StatCard tint="#a78bfa" icon={<Star size={18} color="#a78bfa" />} value={perfil.ranking[0]?.puntosTotales ?? 0} label="Puntos" />
+            <StatCard tint={colors.primary} icon={<Flame size={18} color={colors.primary} />} value={perfil.partidos.rachaActual} label="Racha actual" />
           </View>
 
           {/* Ranking */}

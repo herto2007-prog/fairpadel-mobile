@@ -224,7 +224,7 @@ export default function TorneoDetalle() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   centered: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
-  hero: { height: 240, backgroundColor: colors.dark100 },
+  hero: { height: 200, backgroundColor: colors.dark100 },
   heroImg: { width: '100%', height: '100%' },
   heroPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   backBtn: { position: 'absolute', left: spacing.md, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
