@@ -29,6 +29,7 @@ import {
 import { useAuth } from '../../src/features/auth/context/AuthContext';
 import { jugadorService, FeedItem, NodoAgenda, Agenda } from '../../src/services/jugadorService';
 import { notificacionService } from '../../src/services/notificacionService';
+import { perfilService } from '../../src/services/perfilService';
 import { PalaHeart } from '../../src/components/icons/PalaHeart';
 import { colors, spacing, radius } from '../../src/lib/theme';
 
@@ -227,6 +228,7 @@ export default function HomeTab() {
   const agendaQ = useQuery({ queryKey: ['mi-agenda'], queryFn: jugadorService.getMiAgenda });
   const feedQ = useQuery({ queryKey: ['feed'], queryFn: jugadorService.getFeed });
   const notifQ = useQuery({ queryKey: ['notif-count'], queryFn: notificacionService.getNoLeidasCount });
+  const perfilQ = useQuery({ queryKey: ['mi-perfil'], queryFn: perfilService.getMiPerfil });
 
   // Al volver al Inicio (ej. tras ver/marcar notificaciones), refrescar el badge.
   useFocusEffect(useCallback(() => { notifQ.refetch(); }, []));
@@ -283,6 +285,15 @@ export default function HomeTab() {
       }
     >
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.navigate('/perfil')} activeOpacity={0.85}>
+          {perfilQ.data?.fotoUrl ? (
+            <Image source={{ uri: perfilQ.data.fotoUrl }} style={styles.headerAvatar} />
+          ) : (
+            <View style={[styles.headerAvatar, styles.headerAvatarFallback]}>
+              <Text style={styles.headerAvatarText}>{`${user?.nombre?.[0] ?? ''}${user?.apellido?.[0] ?? ''}`.toUpperCase()}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.greeting}>Buenas,</Text>
           <Text style={styles.name} numberOfLines={1}>{user?.nombre} {user?.apellido}</Text>
@@ -306,6 +317,21 @@ export default function HomeTab() {
         </View>
       ) : (
         <>
+          <View style={styles.statsCard}>
+            <View style={styles.statMini}>
+              <Text style={styles.statValue}>{perfilQ.data?.stats.torneosJugados ?? 0}</Text>
+              <Text style={styles.statLabel}>Torneos</Text>
+            </View>
+            <View style={styles.statMini}>
+              <Text style={styles.statValue}>{perfilQ.data?.partidos.ganados ?? 0}</Text>
+              <Text style={styles.statLabel}>Ganados</Text>
+            </View>
+            <View style={styles.statMini}>
+              <Text style={styles.statValue}>{perfilQ.data?.partidos.rachaActual ?? 0}</Text>
+              <Text style={styles.statLabel}>Racha</Text>
+            </View>
+          </View>
+
           {agendaConPartido ? <HeroProximoPartido agenda={agendaConPartido} /> : <HeroVacio />}
 
           <View style={styles.section}>
@@ -354,8 +380,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.lg,
   },
+  headerAvatar: { width: 46, height: 46, borderRadius: 23, marginRight: spacing.md, borderWidth: 2, borderColor: colors.primary },
+  headerAvatarFallback: { backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
+  headerAvatarText: { color: colors.white, fontSize: 17, fontWeight: '800' },
   greeting: { color: colors.gray400, fontSize: 14 },
   name: { color: colors.white, fontSize: 24, fontWeight: 'bold', marginTop: 2 },
+  statsCard: {
+    flexDirection: 'row', marginHorizontal: spacing.lg, marginBottom: spacing.lg,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.xl, padding: spacing.md,
+  },
+  statMini: { flex: 1, alignItems: 'center' },
+  statValue: { color: colors.primary, fontSize: 22, fontWeight: '800' },
+  statLabel: { color: colors.gray400, fontSize: 12, marginTop: 2 },
   iconBtn: {
     width: 40,
     height: 40,
