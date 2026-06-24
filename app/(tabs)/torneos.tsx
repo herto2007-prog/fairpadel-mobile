@@ -47,9 +47,17 @@ function rangoFechas(inicio: string, fin: string): string {
   return `${formatDatePYShort(inicio)} – ${formatDatePYShort(fin)}`;
 }
 
-function TorneoCard({ torneo }: { torneo: TorneoListItem }) {
+function TorneoCard({ torneo, estado }: { torneo: TorneoListItem; estado: TorneoEstadoFiltro }) {
   const abiertas = torneo.categorias?.some((c) => c.inscripcionAbierta);
   const navegable = !!torneo.slug;
+  const badge =
+    estado === 'en-curso'
+      ? { label: 'En curso', bg: '#ef9f27', color: '#412402' }
+      : estado === 'finalizados'
+      ? { label: 'Finalizado', bg: '#3a4654', color: '#dfe3ea' }
+      : abiertas
+      ? { label: 'Inscripciones abiertas', bg: '#1d9e75', color: '#04130d' }
+      : { label: 'Próximamente', bg: '#22303f', color: '#9aa3b2' };
   return (
     <TouchableOpacity
       style={[styles.card, !navegable && styles.cardDisabled]}
@@ -61,13 +69,11 @@ function TorneoCard({ torneo }: { torneo: TorneoListItem }) {
         {torneo.flyerUrl ? (
           <Image source={{ uri: torneo.flyerUrl }} style={styles.flyerImg} resizeMode="cover" />
         ) : (
-          <Trophy size={34} color={colors.dark300} />
+          <Trophy size={42} color={colors.dark300} />
         )}
-        {abiertas && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>Inscripciones abiertas</Text>
-          </View>
-        )}
+        <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+          <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
+        </View>
       </View>
 
       <View style={styles.cardBody}>
@@ -118,7 +124,7 @@ function TorneoCard({ torneo }: { torneo: TorneoListItem }) {
 function TorneoCardSkeleton() {
   return (
     <View style={styles.card}>
-      <Skeleton style={{ height: 110, borderRadius: 0 }} />
+      <Skeleton style={{ height: 140, borderRadius: 0 }} />
       <View style={styles.cardBody}>
         <Skeleton style={{ height: 16, width: '70%' }} />
         <Skeleton style={{ height: 12, width: '50%', marginTop: 10 }} />
@@ -198,7 +204,7 @@ export default function TorneosTab() {
         <FlatList
           data={torneos}
           keyExtractor={(t) => t.id}
-          renderItem={({ item }) => <TorneoCard torneo={item} />}
+          renderItem={({ item }) => <TorneoCard torneo={item} estado={estado} />}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -231,12 +237,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     marginHorizontal: spacing.lg,
-    backgroundColor: colors.card,
+    backgroundColor: '#161b26',
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.lg,
+    borderRadius: 16,
     paddingHorizontal: spacing.md,
-    height: 46,
+    height: 48,
+    shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 5,
   },
   searchInput: { flex: 1, color: colors.white, fontSize: 15, paddingVertical: 0 },
   segment: {
@@ -258,46 +265,44 @@ const styles = StyleSheet.create({
   segTextOn: { color: colors.white },
   listContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xl },
   card: {
-    backgroundColor: colors.card,
+    backgroundColor: '#161b26',
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.xl,
+    borderRadius: 22,
     overflow: 'hidden',
     marginBottom: spacing.lg,
+    shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 10 }, elevation: 8,
   },
   cardDisabled: { opacity: 0.55 },
   flyer: {
-    height: 110,
-    backgroundColor: colors.dark100,
+    height: 140,
+    backgroundColor: '#22303f',
     alignItems: 'center',
     justifyContent: 'center',
   },
   flyerImg: { width: '100%', height: '100%' },
   badge: {
     position: 'absolute',
-    top: 10,
-    left: 10,
-    backgroundColor: colors.green500,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
+    top: 12,
+    left: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
     borderRadius: 999,
   },
-  badgeText: { color: '#04130d', fontSize: 11, fontWeight: '800' },
+  badgeText: { fontSize: 11, fontWeight: '700' },
   cardBody: { padding: spacing.md },
-  cardTitle: { color: colors.white, fontSize: 16, fontWeight: '800' },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: 6 },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metaText: { color: colors.gray400, fontSize: 12 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10, alignItems: 'center' },
+  cardTitle: { color: colors.white, fontSize: 17, fontWeight: '700' },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: 10 },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metaText: { color: colors.gray400, fontSize: 13 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 13, alignItems: 'center' },
   chip: {
-    backgroundColor: colors.dark100,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: 'rgba(223,37,49,0.13)',
     borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  chipText: { color: colors.gray400, fontSize: 11, fontWeight: '600' },
+  chipText: { color: '#ff8a8a', fontSize: 11, fontWeight: '600' },
   chipMore: { color: colors.gray500, fontSize: 11, fontWeight: '700' },
   cardFooter: {
     flexDirection: 'row',
