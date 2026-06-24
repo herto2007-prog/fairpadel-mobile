@@ -12,7 +12,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import { useAuth } from '../src/features/auth/context/AuthContext';
 import { authService } from '../src/services/authService';
 import { GoogleSignInButton } from '../src/features/auth/GoogleSignInButton';
@@ -94,6 +94,7 @@ export default function Login() {
 
             {error ? (
               <View style={styles.errorBox}>
+                <AlertCircle size={16} color="#fca5a5" />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             ) : null}
@@ -228,6 +229,9 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, color: colors.white, fontSize: 15, paddingVertical: 0 },
   errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     backgroundColor: 'rgba(239,68,68,0.12)',
     borderWidth: 1,
     borderColor: colors.red500,
@@ -235,7 +239,7 @@ const styles = StyleSheet.create({
     padding: spacing.md - 2,
     marginBottom: spacing.sm,
   },
-  errorText: { color: '#fca5a5', fontSize: 14 },
+  errorText: { flex: 1, color: '#fca5a5', fontSize: 14 },
   forgotLink: { alignSelf: 'flex-end', marginTop: spacing.md },
   forgotText: { color: colors.gray400, fontSize: 13 },
   submit: {

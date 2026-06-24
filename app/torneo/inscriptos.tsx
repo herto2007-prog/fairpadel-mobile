@@ -151,10 +151,10 @@ const styles = StyleSheet.create({
   catBody: { borderTopWidth: 1, borderTopColor: colors.border },
   parejaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: colors.dark100 },
   avs: { flexDirection: 'row', alignItems: 'center' },
-  avOverlap: { marginLeft: -8 },
-  av: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.dark100, borderWidth: 2, borderColor: colors.card },
+  avOverlap: { marginLeft: -10 },
+  av: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.dark100, borderWidth: 2, borderColor: colors.card },
   avFallback: { alignItems: 'center', justifyContent: 'center' },
-  avIni: { color: colors.gray400, fontSize: 10, fontWeight: '700' },
+  avIni: { color: colors.gray400, fontSize: 12, fontWeight: '700' },
   parejaNombre: { flex: 1, color: '#e5e7eb', fontSize: 13 },
   vacio: { color: colors.gray500, fontSize: 12, padding: spacing.md },
 });
