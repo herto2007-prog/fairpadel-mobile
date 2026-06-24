@@ -124,7 +124,7 @@ export default function LlaveScreen() {
   const { user } = useAuth();
   const { id, nombre } = useLocalSearchParams<{ id: string; nombre?: string }>();
   const [catSel, setCatSel] = useState<string | null>(null);
-  const [soloTuCamino, setSoloTuCamino] = useState(false);
+  const [focus, setFocus] = useState<string>('todo'); // 'todo' | 'tu' | 'pareja:<key>'
   const [detalle, setDetalle] = useState<PartidoBracket | null>(null);
   const [seguidos, setSeguidos] = useState<Set<string>>(new Set());
 
@@ -164,6 +164,26 @@ export default function LlaveScreen() {
   const partidos = bracketQ.data ?? [];
   const tengoCamino = !!user?.id && partidos.some((p) => involucraUsuario(p, user.id));
   const campeon = partidos.find((p) => p.fase === 'FINAL' && p.ganador)?.ganador ?? null;
+
+  // Parejas seguidas presentes en este cuadro (para los chips de enfoque)
+  const parejasSeguidas: { key: string; label: string; ids: string[] }[] = [];
+  const vistos = new Set<string>();
+  for (const p of partidos) {
+    for (const par of [p.inscripcion1, p.inscripcion2]) {
+      if (!par) continue;
+      const ids = [par.jugador1?.id, par.jugador2?.id].filter((x): x is string => !!x);
+      if (ids.length === 0 || !ids.some((id) => seguidos.has(id))) continue;
+      const key = ids.slice().sort().join('-');
+      if (vistos.has(key)) continue;
+      vistos.add(key);
+      const label = [par.jugador1?.apellido || par.jugador1?.nombre, par.jugador2?.apellido || par.jugador2?.nombre].filter(Boolean).join('/');
+      parejasSeguidas.push({ key, label, ids });
+    }
+  }
+  let filtroIds: string[] | null = null;
+  if (focus === 'tu' && user?.id) filtroIds = [user.id];
+  else if (focus.startsWith('pareja:')) filtroIds = parejasSeguidas.find((x) => `pareja:${x.key}` === focus)?.ids ?? null;
+  const hayChips = tengoCamino || parejasSeguidas.length > 0;
   // Mini-mapa: fases presentes en orden, marcando las decididas
   const fasesPresentes = FASE_ORDER.filter((f) => partidos.some((p) => p.fase === f));
   const faseDecidida = (f: string) => partidos.filter((p) => p.fase === f).every((p) => !!p.ganador || p.esBye);
@@ -194,7 +214,7 @@ export default function LlaveScreen() {
             {catsQ.data!.map((c) => {
               const on = catSel === c.id;
               return (
-                <TouchableOpacity key={c.id} style={[styles.chip, on && styles.chipOn]} onPress={() => { setCatSel(c.id); setSoloTuCamino(false); }} activeOpacity={0.8}>
+                <TouchableOpacity key={c.id} style={[styles.chip, on && styles.chipOn]} onPress={() => { setCatSel(c.id); setFocus('todo'); }} activeOpacity={0.8}>
                   <Text style={[styles.chipText, on && styles.chipTextOn]}>{c.nombre}</Text>
                 </TouchableOpacity>
               );
@@ -208,22 +228,34 @@ export default function LlaveScreen() {
             </View>
           ) : null}
 
-          {/* Toggle Tu camino / Cuadro completo */}
-          {tengoCamino && (
-            <View style={styles.toggle}>
-              <TouchableOpacity style={[styles.tgItem, soloTuCamino && styles.tgItemOn]} onPress={() => setSoloTuCamino(true)} activeOpacity={0.8}>
-                <Route size={15} color={soloTuCamino ? colors.white : colors.gray400} />
-                <Text style={[styles.tgText, soloTuCamino && styles.tgTextOn]}>Tu camino</Text>
+          {/* Chips de enfoque: Todo / Tu camino / parejas seguidas */}
+          {hayChips && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.sm }} style={{ marginTop: spacing.sm, marginBottom: spacing.md }}>
+              <TouchableOpacity style={[styles.foco, focus === 'todo' && styles.focoOn]} onPress={() => setFocus('todo')} activeOpacity={0.8}>
+                <LayoutGrid size={14} color={focus === 'todo' ? colors.white : colors.gray400} />
+                <Text style={[styles.focoText, focus === 'todo' && styles.focoTextOn]}>Todo</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.tgItem, !soloTuCamino && styles.tgItemOn]} onPress={() => setSoloTuCamino(false)} activeOpacity={0.8}>
-                <LayoutGrid size={15} color={!soloTuCamino ? colors.white : colors.gray400} />
-                <Text style={[styles.tgText, !soloTuCamino && styles.tgTextOn]}>Cuadro completo</Text>
-              </TouchableOpacity>
-            </View>
+              {tengoCamino && (
+                <TouchableOpacity style={[styles.foco, focus === 'tu' && styles.focoOn]} onPress={() => setFocus('tu')} activeOpacity={0.8}>
+                  <Route size={14} color={focus === 'tu' ? colors.white : '#ff8a8a'} />
+                  <Text style={[styles.focoText, focus === 'tu' ? styles.focoTextOn : { color: '#ff8a8a' }]}>Tu camino</Text>
+                </TouchableOpacity>
+              )}
+              {parejasSeguidas.map((pr) => {
+                const on = focus === `pareja:${pr.key}`;
+                return (
+                  <TouchableOpacity key={pr.key} style={[styles.foco, styles.focoSeg, on && styles.focoSegOn]} onPress={() => setFocus(`pareja:${pr.key}`)} activeOpacity={0.8}>
+                    <Eye size={14} color={on ? colors.white : '#85b7eb'} />
+                    <Text style={[styles.focoText, { color: on ? colors.white : '#85b7eb' }]} numberOfLines={1}>{pr.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           )}
 
           {/* Mini-mapa de rondas */}
-          {fasesPresentes.length > 1 && !soloTuCamino && (
+          {fasesPresentes.length > 1 && focus === 'todo' && (
             <View style={styles.minimap}>
               {fasesPresentes.map((f, i) => (
                 <View key={f} style={styles.mmItem}>
@@ -241,7 +273,7 @@ export default function LlaveScreen() {
             <Text style={styles.emptyText2}>El cuadro todavía no tiene partidos.</Text>
           ) : (
             <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
-              <BracketTree partidos={partidos} userId={user?.id} seguidos={seguidos} soloTuCamino={soloTuCamino} onMatchPress={setDetalle} />
+              <BracketTree partidos={partidos} userId={user?.id} seguidos={seguidos} filtroIds={filtroIds} onMatchPress={setDetalle} />
             </View>
           )}
         </ScrollView>
@@ -262,11 +294,12 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.gray400, fontSize: 13, fontWeight: '600' },
   chipTextOn: { color: colors.white },
-  toggle: { flexDirection: 'row', gap: 8, marginHorizontal: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.md },
-  tgItem: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: 12, backgroundColor: '#161b26', borderWidth: 1, borderColor: colors.border },
-  tgItemOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tgText: { color: colors.gray400, fontSize: 13, fontWeight: '600' },
-  tgTextOn: { color: colors.white },
+  foco: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: '#161b26', borderWidth: 1, borderColor: colors.border },
+  focoOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  focoSeg: { borderColor: 'rgba(55,138,221,0.4)' },
+  focoSegOn: { backgroundColor: '#378add', borderColor: '#378add' },
+  focoText: { color: colors.gray400, fontSize: 13, fontWeight: '600', maxWidth: 150 },
+  focoTextOn: { color: colors.white },
   minimap: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, marginBottom: spacing.md },
   mmItem: { flexDirection: 'row', alignItems: 'center' },
   mmDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#22303f', marginRight: 5 },

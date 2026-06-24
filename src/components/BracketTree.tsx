@@ -121,20 +121,26 @@ function MatchCard({ p, userId, seguidos, onPress }: { p: PartidoBracket; userId
   );
 }
 
+function matchTieneAlguno(p: PartidoBracket, ids: Set<string>): boolean {
+  const enPar = (par?: ParejaBracket | null) => !!par && ((!!par.jugador1?.id && ids.has(par.jugador1.id)) || (!!par.jugador2?.id && ids.has(par.jugador2.id)));
+  return enPar(p.inscripcion1) || enPar(p.inscripcion2);
+}
+
 export default function BracketTree({
   partidos,
   userId,
   seguidos,
-  soloTuCamino,
+  filtroIds,
   onMatchPress,
 }: {
   partidos: PartidoBracket[];
   userId?: string | null;
   seguidos?: Set<string>;
-  soloTuCamino?: boolean;
+  filtroIds?: string[] | null;
   onMatchPress: (p: PartidoBracket) => void;
 }) {
-  const visibles = soloTuCamino ? partidos.filter((p) => involucraUsuario(p, userId)) : partidos;
+  const filtroSet = filtroIds && filtroIds.length ? new Set(filtroIds) : null;
+  const visibles = filtroSet ? partidos.filter((p) => matchTieneAlguno(p, filtroSet)) : partidos;
 
   const grupos = new Map<string, PartidoBracket[]>();
   for (const p of visibles) {
