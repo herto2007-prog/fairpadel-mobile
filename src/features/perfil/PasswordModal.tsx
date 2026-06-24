@@ -38,7 +38,7 @@ export function PasswordModal({ visible, onClose }: { visible: boolean; onClose:
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={cerrar}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.root}>
         <View style={styles.card}>
           <View style={styles.head}>
             <Text style={styles.title}>Cambiar contraseña</Text>

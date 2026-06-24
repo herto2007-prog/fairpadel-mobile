@@ -91,14 +91,14 @@ function EditModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalRoot}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalRoot}>
         <View style={styles.modalCard}>
           <View style={styles.modalHead}>
             <Text style={styles.modalTitle}>Editar perfil</Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}><X size={22} color={colors.gray400} /></TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ maxHeight: 360 }}>
             {error ? <Text style={styles.modalError}>{error}</Text> : null}
 
             <Text style={styles.modalLabel}>Documento {docFijo ? '(no editable)' : ''}</Text>
