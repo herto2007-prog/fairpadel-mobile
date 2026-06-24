@@ -25,6 +25,7 @@ import {
   Plus,
   X,
   Flame,
+  Target,
 } from 'lucide-react-native';
 import { useAuth } from '../../src/features/auth/context/AuthContext';
 import { jugadorService, FeedItem, NodoAgenda, Agenda } from '../../src/services/jugadorService';
@@ -320,6 +321,22 @@ export default function HomeTab() {
             <Text style={styles.heroThird} numberOfLines={1}>{terceraLinea}</Text>
           </View>
         </View>
+        <View style={styles.heroStats}>
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatValue}>{perfilQ.data?.seguidores ?? 0}</Text>
+            <Text style={styles.heroStatLabel}>Seguidores</Text>
+          </View>
+          <View style={styles.heroStatDiv} />
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatValue}>{perfilQ.data?.siguiendo ?? 0}</Text>
+            <Text style={styles.heroStatLabel}>Siguiendo</Text>
+          </View>
+          <View style={styles.heroStatDiv} />
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatValue}>{perfilQ.data?.stats.torneosJugados ?? 0}</Text>
+            <Text style={styles.heroStatLabel}>Torneos</Text>
+          </View>
+        </View>
       </View>
 
       {cargando ? (
@@ -329,7 +346,7 @@ export default function HomeTab() {
       ) : (
         <>
           <View style={styles.statsRow}>
-            <StatBig tint={colors.amber500} icon={<Trophy size={21} color={colors.amber500} />} value={perfilQ.data?.stats.torneosJugados ?? 0} label="Torneos" />
+            <StatBig tint={colors.amber500} icon={<Target size={21} color={colors.amber500} />} value={`${Math.round(perfilQ.data?.partidos.efectividad ?? 0)}%`} label="Efectividad" />
             <StatBig tint={colors.blue500} icon={<Activity size={21} color={colors.blue500} />} value={perfilQ.data?.partidos.ganados ?? 0} label="Ganados" />
             <StatBig tint={colors.primary} icon={<Flame size={21} color={colors.primary} />} value={perfilQ.data?.partidos.rachaActual ?? 0} label="Racha" />
           </View>
@@ -401,6 +418,15 @@ const styles = StyleSheet.create({
   heroGreeting: { color: 'rgba(255,255,255,0.85)', fontSize: 15 },
   heroName: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 1 },
   heroThird: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 5 },
+  // Triplete social dentro del hero (Seguidores · Siguiendo · Torneos)
+  heroStats: {
+    flexDirection: 'row', alignItems: 'center', marginTop: 18, paddingTop: 16,
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.22)',
+  },
+  heroStat: { flex: 1, alignItems: 'center' },
+  heroStatValue: { color: colors.white, fontSize: 18, fontWeight: '800' },
+  heroStatLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
+  heroStatDiv: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.22)' },
   // Stats grandes con profundidad
   statsRow: { flexDirection: 'row', gap: spacing.md - 2, paddingHorizontal: spacing.lg, marginBottom: spacing.xl },
   statBig: {
