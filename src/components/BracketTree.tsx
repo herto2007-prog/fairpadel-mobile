@@ -32,6 +32,11 @@ export function involucraUsuario(p: PartidoBracket, userId?: string | null): boo
   return enPar(p.inscripcion1) || enPar(p.inscripcion2);
 }
 
+function parSeguido(par?: ParejaBracket | null, seguidos?: Set<string>): boolean {
+  if (!par || !seguidos || seguidos.size === 0) return false;
+  return (!!par.jugador1?.id && seguidos.has(par.jugador1.id)) || (!!par.jugador2?.id && seguidos.has(par.jugador2.id));
+}
+
 const goJugador = (id?: string | null) => { if (id) router.push(`/jugador/${id}`); };
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -60,13 +65,13 @@ function Avatar({ j }: { j?: JugadorBracket | null }) {
   return <View style={[styles.av, styles.avFallback]}><Text style={styles.avIni}>{ini || '?'}</Text></View>;
 }
 
-function TeamRow({ par, origen, gana, score, bye }: { par?: ParejaBracket | null; origen?: string | null; gana: boolean; score: string; bye?: boolean }) {
+function TeamRow({ par, origen, gana, score, bye, seguido }: { par?: ParejaBracket | null; origen?: string | null; gana: boolean; score: string; bye?: boolean; seguido?: boolean }) {
   const j1 = par?.jugador1;
   const j2 = par?.jugador2;
   const tienePareja = !bye && !!(j1 || j2);
   const nombre = bye ? 'BYE' : tienePareja ? [apellido(j1), apellido(j2)].filter(Boolean).join(' / ') : (origen || 'A definir');
   return (
-    <View style={[styles.teamRow, gana && styles.teamRowWin]}>
+    <View style={[styles.teamRow, gana && styles.teamRowWin, seguido && !gana && styles.teamRowSeg]}>
       {tienePareja ? (
         <View style={styles.avs}>
           <TouchableOpacity onPress={() => goJugador(j1?.id)} disabled={!j1?.id} hitSlop={6}><Avatar j={j1} /></TouchableOpacity>
@@ -74,27 +79,31 @@ function TeamRow({ par, origen, gana, score, bye }: { par?: ParejaBracket | null
         </View>
       ) : null}
       <Text style={[styles.teamName, gana && styles.win]} numberOfLines={1}>{nombre}</Text>
+      {seguido ? <Text style={styles.segTag}>SIGUIENDO</Text> : null}
       <Text style={[styles.score, gana && styles.win]}>{score}</Text>
     </View>
   );
 }
 
-function MatchCard({ p, userId, onPress }: { p: PartidoBracket; userId?: string | null; onPress: (p: PartidoBracket) => void }) {
+function MatchCard({ p, userId, seguidos, onPress }: { p: PartidoBracket; userId?: string | null; seguidos?: Set<string>; onPress: (p: PartidoBracket) => void }) {
   const gana1 = !!(p.ganador && mismaPareja(p.ganador, p.inscripcion1));
   const gana2 = !!(p.ganador && mismaPareja(p.ganador, p.inscripcion2));
   const sets = setsDe(p);
   const s1 = sets.map((s) => s[0]).join('  ');
   const s2 = sets.map((s) => s[1]).join('  ');
   const esTuyo = involucraUsuario(p, userId);
+  const seg1 = parSeguido(p.inscripcion1, seguidos);
+  const seg2 = parSeguido(p.inscripcion2, seguidos);
+  const esSeguido = !esTuyo && (seg1 || seg2);
   const vivo = estadoVivo(p);
   const meta = [p.fecha ? formatDatePYShort(p.fecha) : null, p.sede, p.cancha, p.hora ? `${p.hora}h` : null].filter(Boolean).join(' · ');
   return (
-    <TouchableOpacity style={[styles.card, esTuyo && styles.cardTuyo]} activeOpacity={0.85} onPress={() => onPress(p)}>
-      {esTuyo ? <View style={styles.tuBar} /> : null}
+    <TouchableOpacity style={[styles.card, esTuyo && styles.cardTuyo, esSeguido && styles.cardSeguido]} activeOpacity={0.85} onPress={() => onPress(p)}>
+      {esTuyo ? <View style={styles.tuBar} /> : esSeguido ? <View style={styles.segBar} /> : null}
       <View style={{ flex: 1 }}>
-        <TeamRow par={p.inscripcion1} origen={p.origen1} gana={gana1} score={s1} />
+        <TeamRow par={p.inscripcion1} origen={p.origen1} gana={gana1} score={s1} seguido={seg1} />
         <View style={styles.div} />
-        <TeamRow par={p.inscripcion2} origen={p.origen2} gana={gana2} score={s2} bye={p.esBye} />
+        <TeamRow par={p.inscripcion2} origen={p.origen2} gana={gana2} score={s2} bye={p.esBye} seguido={seg2} />
         {vivo === 'vivo' ? (
           <View style={[styles.footer, styles.footerVivo]}>
             <View style={styles.vivoDot} />
@@ -115,11 +124,13 @@ function MatchCard({ p, userId, onPress }: { p: PartidoBracket; userId?: string 
 export default function BracketTree({
   partidos,
   userId,
+  seguidos,
   soloTuCamino,
   onMatchPress,
 }: {
   partidos: PartidoBracket[];
   userId?: string | null;
+  seguidos?: Set<string>;
   soloTuCamino?: boolean;
   onMatchPress: (p: PartidoBracket) => void;
 }) {
@@ -144,7 +155,7 @@ export default function BracketTree({
         <View key={r.fase}>
           <Text style={styles.roundTitle}>{FASE_LABEL[r.fase] || r.fase}</Text>
           <View style={{ gap: spacing.sm }}>
-            {r.ps.map((p) => <MatchCard key={p.id} p={p} userId={userId} onPress={onMatchPress} />)}
+            {r.ps.map((p) => <MatchCard key={p.id} p={p} userId={userId} seguidos={seguidos} onPress={onMatchPress} />)}
           </View>
         </View>
       ))}
@@ -159,9 +170,13 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 5,
   },
   cardTuyo: { borderColor: '#2a2030' },
+  cardSeguido: { borderColor: '#1d3a52' },
   tuBar: { width: 4, backgroundColor: colors.primary },
+  segBar: { width: 4, backgroundColor: '#378add' },
   teamRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 13, paddingVertical: 11 },
   teamRowWin: { backgroundColor: 'rgba(223,37,49,0.10)' },
+  teamRowSeg: { backgroundColor: 'rgba(55,138,221,0.08)' },
+  segTag: { color: '#85b7eb', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
   avs: { flexDirection: 'row', alignItems: 'center' },
   avOverlap: { marginLeft: -8 },
   av: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.dark100, borderWidth: 1.5, borderColor: ELEVADO },

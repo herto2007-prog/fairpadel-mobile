@@ -3,9 +3,10 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Ima
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Route, LayoutGrid, X, Trophy } from 'lucide-react-native';
+import { ArrowLeft, Route, LayoutGrid, X, Trophy, Eye, EyeOff } from 'lucide-react-native';
 import { torneoService, PartidoBracket, JugadorBracket, ParejaBracket } from '../../src/services/torneoService';
 import BracketTree, { involucraUsuario } from '../../src/components/BracketTree';
+import { socialService } from '../../src/services/socialService';
 import { useAuth } from '../../src/features/auth/context/AuthContext';
 import { formatDatePYShort } from '../../src/utils/date';
 import { colors, spacing, radius } from '../../src/lib/theme';
@@ -18,11 +19,16 @@ const FASE_ORDER = ['ZONA', 'REPECHAJE', 'TREINTAYDOSAVOS', 'DIECISEISAVOS', 'OC
 
 const go = (id?: string | null) => { if (id) router.push(`/jugador/${id}`); };
 
-function SheetTeam({ j1, j2, sets, idx, ganador }: { j1?: JugadorBracket | null; j2?: JugadorBracket | null; sets: string; idx: number; ganador: boolean }) {
+function SheetTeam({ j1, j2, sets, ganador, seguidos, userId, onTogglePareja }: {
+  j1?: JugadorBracket | null; j2?: JugadorBracket | null; sets: string; ganador: boolean;
+  seguidos: Set<string>; userId?: string | null; onTogglePareja: (ids: string[], siguiendo: boolean) => void;
+}) {
   const Av = ({ j }: { j?: JugadorBracket | null }) =>
     j?.fotoUrl ? <Image source={{ uri: j.fotoUrl }} style={styles.shAv} /> : (
       <View style={[styles.shAv, styles.shAvFb]}><Text style={styles.shAvIni}>{`${j?.nombre?.[0] ?? ''}${j?.apellido?.[0] ?? ''}`.toUpperCase() || '?'}</Text></View>
     );
+  const seguibles = [j1?.id, j2?.id].filter((id): id is string => !!id && id !== userId);
+  const siguiendo = seguibles.some((id) => seguidos.has(id));
   return (
     <View style={[styles.shTeam, ganador && styles.shTeamWin]}>
       <View style={styles.shAvs}>
@@ -40,11 +46,24 @@ function SheetTeam({ j1, j2, sets, idx, ganador }: { j1?: JugadorBracket | null;
         ) : null}
       </View>
       <Text style={[styles.shScore, ganador && styles.shWin]}>{sets || '—'}</Text>
+      {seguibles.length > 0 ? (
+        <TouchableOpacity
+          style={[styles.shFollow, siguiendo && styles.shFollowOn]}
+          onPress={() => onTogglePareja(seguibles, siguiendo)}
+          hitSlop={6}
+          activeOpacity={0.8}
+        >
+          {siguiendo ? <EyeOff size={16} color="#85b7eb" /> : <Eye size={16} color={colors.gray400} />}
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
 
-function DetalleSheet({ p, onClose }: { p: PartidoBracket | null; onClose: () => void }) {
+function DetalleSheet({ p, onClose, seguidos, userId, onTogglePareja }: {
+  p: PartidoBracket | null; onClose: () => void;
+  seguidos: Set<string>; userId?: string | null; onTogglePareja: (ids: string[], siguiendo: boolean) => void;
+}) {
   if (!p) return null;
   const sets = p.resultado ? [p.resultado.set1, p.resultado.set2, p.resultado.set3].filter(Boolean) as [number, number][] : [];
   const s1 = sets.map((s) => s[0]).join('   ');
@@ -61,9 +80,9 @@ function DetalleSheet({ p, onClose }: { p: PartidoBracket | null; onClose: () =>
             <Text style={styles.shTitle}>{FASE_LABEL[p.fase] || p.fase}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}><X size={22} color={colors.gray400} /></TouchableOpacity>
           </View>
-          <SheetTeam j1={p.inscripcion1?.jugador1} j2={p.inscripcion1?.jugador2} sets={s1} idx={1} ganador={g1} />
+          <SheetTeam j1={p.inscripcion1?.jugador1} j2={p.inscripcion1?.jugador2} sets={s1} ganador={g1} seguidos={seguidos} userId={userId} onTogglePareja={onTogglePareja} />
           <View style={styles.shDiv} />
-          <SheetTeam j1={p.inscripcion2?.jugador1} j2={p.inscripcion2?.jugador2} sets={s2} idx={2} ganador={g2} />
+          <SheetTeam j1={p.inscripcion2?.jugador1} j2={p.inscripcion2?.jugador2} sets={s2} ganador={g2} seguidos={seguidos} userId={userId} onTogglePareja={onTogglePareja} />
           {meta ? (
             <View style={styles.shMeta}><Text style={styles.shMetaText}>{meta}</Text></View>
           ) : (
@@ -107,6 +126,25 @@ export default function LlaveScreen() {
   const [catSel, setCatSel] = useState<string | null>(null);
   const [soloTuCamino, setSoloTuCamino] = useState(false);
   const [detalle, setDetalle] = useState<PartidoBracket | null>(null);
+  const [seguidos, setSeguidos] = useState<Set<string>>(new Set());
+
+  const seguidosQ = useQuery({
+    queryKey: ['siguiendo-ids', user?.id],
+    queryFn: () => socialService.getSiguiendoIds(user!.id),
+    enabled: !!user?.id,
+  });
+  useEffect(() => { if (seguidosQ.data) setSeguidos(new Set(seguidosQ.data)); }, [seguidosQ.data]);
+
+  const togglePareja = async (ids: string[], siguiendo: boolean) => {
+    const next = new Set(seguidos);
+    ids.forEach((id) => (siguiendo ? next.delete(id) : next.add(id)));
+    setSeguidos(next); // optimista
+    try {
+      await Promise.all(ids.map((id) => (siguiendo ? socialService.dejarDeSeguir(id) : socialService.seguir(id))));
+    } catch {
+      setSeguidos(new Set(seguidos)); // revertir
+    }
+  };
 
   const catsQ = useQuery({
     queryKey: ['torneo-cats-bracket', id],
@@ -203,13 +241,13 @@ export default function LlaveScreen() {
             <Text style={styles.emptyText2}>El cuadro todavía no tiene partidos.</Text>
           ) : (
             <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
-              <BracketTree partidos={partidos} userId={user?.id} soloTuCamino={soloTuCamino} onMatchPress={setDetalle} />
+              <BracketTree partidos={partidos} userId={user?.id} seguidos={seguidos} soloTuCamino={soloTuCamino} onMatchPress={setDetalle} />
             </View>
           )}
         </ScrollView>
       )}
 
-      <DetalleSheet p={detalle} onClose={() => setDetalle(null)} />
+      <DetalleSheet p={detalle} onClose={() => setDetalle(null)} seguidos={seguidos} userId={user?.id} onTogglePareja={togglePareja} />
     </View>
   );
 }
@@ -266,6 +304,8 @@ const styles = StyleSheet.create({
   shName: { color: colors.white, fontSize: 14, fontWeight: '500' },
   shScore: { color: colors.gray400, fontSize: 16, fontWeight: '800', letterSpacing: 2 },
   shWin: { color: colors.white },
+  shFollow: { width: 34, height: 34, borderRadius: 12, backgroundColor: colors.dark100, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  shFollowOn: { backgroundColor: 'rgba(55,138,221,0.16)', borderColor: 'rgba(55,138,221,0.4)' },
   shDiv: { height: 1, backgroundColor: colors.border, marginVertical: 4 },
   shMeta: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   shMetaText: { color: colors.gray400, fontSize: 13 },
