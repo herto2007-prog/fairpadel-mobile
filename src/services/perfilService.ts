@@ -18,6 +18,9 @@ export interface PerfilJugador {
   ciudad?: string;
   pais?: string;
   telefono?: string;
+  documento?: string | null;
+  genero?: 'MASCULINO' | 'FEMENINO' | null;
+  fechaNacimiento?: string | null;
   instagram?: string;
   facebook?: string;
   categoria?: { id: string; nombre: string; tipo: string; orden: number };
@@ -99,11 +102,23 @@ export const perfilService = {
     ciudad?: string;
     pais?: string;
     telefono?: string;
+    fechaNacimiento?: string;
     instagram?: string;
     facebook?: string;
   }): Promise<PerfilJugador> => {
     const res = await api.put('/users/profile', data);
     return res.data.data;
+  },
+
+  /** PUT /users/profile/completar-datos — setea documento/genero (solo si faltan) */
+  completarDatos: async (data: {
+    documento?: string;
+    genero?: 'MASCULINO' | 'FEMENINO';
+    fechaNacimiento?: string;
+    ciudad?: string;
+    telefono?: string;
+  }): Promise<void> => {
+    await api.put('/users/profile/completar-datos', data);
   },
 
   /** PUT /users/profile/foto — sube la foto de perfil (multipart, campo 'image') */
