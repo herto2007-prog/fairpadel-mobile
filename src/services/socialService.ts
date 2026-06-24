@@ -26,7 +26,7 @@ export interface SeguimientoResult {
   };
 }
 
-interface SiguiendoUsuario {
+export interface UsuarioLista {
   id: string;
   nombre: string;
   apellido: string;
@@ -67,7 +67,25 @@ export const socialService = {
   /** GET /users/:id/siguiendo-lista — ids de los jugadores que sigue :id */
   getSiguiendoIds: async (usuarioId: string): Promise<Set<string>> => {
     const res = await api.get(`/users/${usuarioId}/siguiendo-lista?limit=200`);
-    const lista: SiguiendoUsuario[] = res.data?.data ?? [];
+    const lista: UsuarioLista[] = res.data?.data ?? [];
     return new Set(lista.map((u) => u.id));
+  },
+
+  /** GET /users/:id/siguiendo-lista — jugadores que sigue :id */
+  getSiguiendo: async (usuarioId: string): Promise<UsuarioLista[]> => {
+    const res = await api.get(`/users/${usuarioId}/siguiendo-lista?limit=200`);
+    return res.data?.data ?? [];
+  },
+
+  /** GET /users/:id/seguidores — jugadores que siguen a :id */
+  getSeguidores: async (usuarioId: string): Promise<UsuarioLista[]> => {
+    const res = await api.get(`/users/${usuarioId}/seguidores?limit=200`);
+    return res.data?.data ?? [];
+  },
+
+  /** DELETE /users/:id/seguidor — eliminar a :id de mis seguidores */
+  eliminarSeguidor: async (usuarioId: string): Promise<{ success: boolean; message: string }> => {
+    const res = await api.delete(`/users/${usuarioId}/seguidor`);
+    return res.data;
   },
 };

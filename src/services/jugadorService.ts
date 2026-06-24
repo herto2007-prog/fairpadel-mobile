@@ -32,6 +32,19 @@ export interface Reaccionador {
   fotoUrl: string | null;
 }
 
+// "Tu actividad" (Inicio): avisos de la plataforma hacia el jugador.
+export type InicioTipo = 'SISTEMA' | 'TORNEO' | 'INSCRIPCION' | 'PARTIDO' | 'RANKING' | 'PAGO' | 'MENSAJE' | string;
+
+export interface InicioItem {
+  id: string;
+  tipo: InicioTipo;
+  titulo: string;
+  detalle: string;
+  link: string | null;
+  fecha: string; // ISO
+  leida: boolean;
+}
+
 export interface NodoAgenda {
   fase: string;
   fecha: string | null; // YYYY-MM-DD
@@ -58,9 +71,21 @@ export interface Agenda {
 // ═══════════════════════════════════════════════════════
 
 export const jugadorService = {
-  /** GET /jugador/feed — "Pulso de tu pádel" (actividad de su mundo) */
+  /** GET /jugador/feed — feed mixto histórico (compat) */
   getFeed: async (): Promise<FeedItem[]> => {
     const res = await api.get('/jugador/feed');
+    return res.data?.data ?? [];
+  },
+
+  /** GET /jugador/inicio — "Tu actividad" (avisos de la plataforma hacia vos) */
+  getInicio: async (): Promise<InicioItem[]> => {
+    const res = await api.get('/jugador/inicio');
+    return res.data?.data ?? [];
+  },
+
+  /** GET /comunidad/feed — feed social (posts + inscripciones de seguidos + resultados) */
+  getComunidadFeed: async (): Promise<FeedItem[]> => {
+    const res = await api.get('/comunidad/feed');
     return res.data?.data ?? [];
   },
 

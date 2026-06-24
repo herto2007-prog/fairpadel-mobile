@@ -12,11 +12,15 @@ import {
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { Search, MapPin, Shield, UserPlus, UserCheck, Users, AlertCircle } from 'lucide-react-native';
+import { Search, MapPin, Shield, UserPlus, UserCheck, Users, AlertCircle, Plus } from 'lucide-react-native';
 import { socialService, JugadorComunidad } from '../../src/services/socialService';
+import { jugadorService } from '../../src/services/jugadorService';
+import { SocialFeed } from '../../src/components/SocialFeed';
 import { useAuth } from '../../src/features/auth/context/AuthContext';
 import { Skeleton } from '../../src/components/ui/Skeleton';
 import { colors, spacing, radius } from '../../src/lib/theme';
+
+type Tab = 'feed' | 'jugadores';
 
 function JugadorRow({
   j,
@@ -75,8 +79,7 @@ function RowSkeleton() {
   );
 }
 
-export default function ComunidadTab() {
-  const insets = useSafeAreaInsets();
+function JugadoresTab() {
   const { user } = useAuth();
   const [q, setQ] = useState('');
   const [siguiendoSet, setSiguiendoSet] = useState<Set<string>>(new Set());
@@ -106,13 +109,12 @@ export default function ComunidadTab() {
     const next = new Set(siguiendoSet);
     if (yaSigo) next.delete(j.id);
     else next.add(j.id);
-    setSiguiendoSet(next); // optimista
+    setSiguiendoSet(next);
     setOcupadoId(j.id);
     try {
       if (yaSigo) await socialService.dejarDeSeguir(j.id);
       else await socialService.seguir(j.id);
     } catch {
-      // revertir
       const revert = new Set(next);
       if (yaSigo) revert.add(j.id);
       else revert.delete(j.id);
@@ -122,89 +124,123 @@ export default function ComunidadTab() {
     }
   };
 
+  if (jugadoresQ.isLoading) {
+    return <View style={styles.list}>{[0, 1, 2, 3, 4].map((i) => <RowSkeleton key={i} />)}</View>;
+  }
+  if (jugadoresQ.isError) {
+    return (
+      <View style={styles.centered}>
+        <AlertCircle size={40} color={colors.gray500} />
+        <Text style={styles.emptyTitle}>No pudimos cargar la comunidad</Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={() => jugadoresQ.refetch()} activeOpacity={0.85}>
+          <Text style={styles.retryText}>Reintentar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+  return (
+    <FlatList
+      data={jugadores}
+      keyExtractor={(j) => j.id}
+      renderItem={({ item }) => (
+        <JugadorRow
+          j={item}
+          siguiendo={siguiendoSet.has(item.id)}
+          onToggle={() => toggleSeguir(item)}
+          ocupado={ocupadoId === item.id}
+        />
+      )}
+      ListHeaderComponent={
+        <View style={styles.searchBox}>
+          <Search size={18} color={colors.gray500} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar por nombre"
+            placeholderTextColor={colors.gray500}
+            value={q}
+            onChangeText={setQ}
+            autoCapitalize="none"
+            returnKeyType="search"
+          />
+        </View>
+      }
+      contentContainerStyle={styles.list}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl refreshing={jugadoresQ.isRefetching} onRefresh={() => jugadoresQ.refetch()} tintColor={colors.primary} />
+      }
+      ListEmptyComponent={
+        <View style={styles.centered}>
+          <Users size={40} color={colors.gray500} />
+          <Text style={styles.emptyTitle}>{q ? 'Sin resultados' : 'No hay jugadores'}</Text>
+          <Text style={styles.emptyText}>{q ? 'Probá con otro nombre.' : 'Volvé más tarde.'}</Text>
+        </View>
+      }
+    />
+  );
+}
+
+export default function ComunidadTab() {
+  const insets = useSafeAreaInsets();
+  const [tab, setTab] = useState<Tab>('feed');
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
         <Text style={styles.title}>Comunidad</Text>
-        <Text style={styles.subtitle}>Encontrá jugadores y seguilos</Text>
       </View>
 
-      <View style={styles.searchBox}>
-        <Search size={18} color={colors.gray500} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar por nombre"
-          placeholderTextColor={colors.gray500}
-          value={q}
-          onChangeText={setQ}
-          autoCapitalize="none"
-          returnKeyType="search"
-        />
+      <View style={styles.segmented}>
+        <TouchableOpacity style={[styles.segBtn, tab === 'feed' && styles.segBtnOn]} activeOpacity={0.8} onPress={() => setTab('feed')}>
+          <Text style={[styles.segText, tab === 'feed' && styles.segTextOn]}>Feed</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.segBtn, tab === 'jugadores' && styles.segBtnOn]} activeOpacity={0.8} onPress={() => setTab('jugadores')}>
+          <Text style={[styles.segText, tab === 'jugadores' && styles.segTextOn]}>Jugadores</Text>
+        </TouchableOpacity>
       </View>
 
-      {jugadoresQ.isLoading ? (
-        <View style={styles.list}>{[0, 1, 2, 3, 4].map((i) => <RowSkeleton key={i} />)}</View>
-      ) : jugadoresQ.isError ? (
-        <View style={styles.centered}>
-          <AlertCircle size={40} color={colors.gray500} />
-          <Text style={styles.emptyTitle}>No pudimos cargar la comunidad</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => jugadoresQ.refetch()} activeOpacity={0.85}>
-            <Text style={styles.retryText}>Reintentar</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={jugadores}
-          keyExtractor={(j) => j.id}
-          renderItem={({ item }) => (
-            <JugadorRow
-              j={item}
-              siguiendo={siguiendoSet.has(item.id)}
-              onToggle={() => toggleSeguir(item)}
-              ocupado={ocupadoId === item.id}
-            />
-          )}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={jugadoresQ.isRefetching} onRefresh={() => jugadoresQ.refetch()} tintColor={colors.primary} />
-          }
-          ListEmptyComponent={
-            <View style={styles.centered}>
-              <Users size={40} color={colors.gray500} />
-              <Text style={styles.emptyTitle}>{q ? 'Sin resultados' : 'No hay jugadores'}</Text>
-              <Text style={styles.emptyText}>{q ? 'Probá con otro nombre.' : 'Volvé más tarde.'}</Text>
-            </View>
-          }
-        />
-      )}
+      <View style={{ flex: 1 }}>
+        {tab === 'feed' ? (
+          <SocialFeed queryKey={['comunidad-feed']} fetchFn={jugadorService.getComunidadFeed} />
+        ) : (
+          <JugadoresTab />
+        )}
+      </View>
+
+      <TouchableOpacity style={styles.fab} onPress={() => router.push('/crear-post')} activeOpacity={0.85}>
+        <Plus size={26} color={colors.white} />
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
+  header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   title: { color: colors.white, fontSize: 26, fontWeight: 'bold' },
-  subtitle: { color: colors.gray400, fontSize: 14, marginTop: 2 },
+  segmented: {
+    flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.lg, marginBottom: spacing.sm,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 4,
+  },
+  segBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: radius.sm + 1 },
+  segBtnOn: { backgroundColor: colors.primary },
+  segText: { color: colors.gray400, fontSize: 13, fontWeight: '600' },
+  segTextOn: { color: colors.white, fontWeight: '700' },
   searchBox: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    marginHorizontal: spacing.lg, backgroundColor: colors.card,
-    borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg,
-    paddingHorizontal: spacing.md, height: 46,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg,
+    paddingHorizontal: spacing.md, height: 46, marginBottom: spacing.md,
   },
   searchInput: { flex: 1, color: colors.white, fontSize: 15, paddingVertical: 0 },
-  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xl, gap: spacing.sm },
+  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: 100, gap: spacing.sm },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md,
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
     borderRadius: radius.lg, padding: spacing.md,
   },
   avatar: { width: 48, height: 48, borderRadius: 24 },
-  catPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(55,138,221,0.14)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
-  },
+  catPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(55,138,221,0.14)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   catPillText: { color: '#85B7EB', fontSize: 11, fontWeight: '600' },
   avatarFallback: { backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.white, fontSize: 17, fontWeight: '800' },
@@ -212,11 +248,7 @@ const styles = StyleSheet.create({
   meta: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md - 2, marginTop: 4 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { color: colors.gray400, fontSize: 12 },
-  followBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: colors.primary, borderRadius: 999,
-    paddingHorizontal: 12, paddingVertical: 7,
-  },
+  followBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.primary, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
   followingBtn: { backgroundColor: colors.dark200, borderWidth: 1, borderColor: colors.border },
   followText: { color: colors.white, fontSize: 12, fontWeight: '700' },
   centered: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, paddingHorizontal: spacing.xl },
@@ -224,4 +256,10 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.gray400, fontSize: 14, marginTop: 4, textAlign: 'center' },
   retryBtn: { marginTop: spacing.lg, backgroundColor: colors.primary, paddingHorizontal: spacing.xl, paddingVertical: spacing.md - 2, borderRadius: radius.lg },
   retryText: { color: colors.white, fontWeight: '700' },
+  fab: {
+    position: 'absolute', right: spacing.lg, bottom: spacing.xl,
+    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 6,
+  },
 });
