@@ -37,6 +37,21 @@ const avStyles = StyleSheet.create({
   text: { color: colors.white, fontWeight: '800', fontSize: 14 },
 });
 
+const ELEVADO = '#161b26';
+
+function StepCol({ n, label, step }: { n: number; label: string; step: number }) {
+  const done = step > n;
+  const active = step >= n;
+  return (
+    <View style={styles.stepCol}>
+      <View style={[styles.stepCircle, active && styles.stepCircleOn]}>
+        {done ? <Check size={15} color={colors.white} /> : <Text style={[styles.stepNum, active && styles.stepNumOn]}>{n}</Text>}
+      </View>
+      <Text style={[styles.stepLabel, active && styles.stepLabelOn]}>{label}</Text>
+    </View>
+  );
+}
+
 export default function Inscribirse() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const insets = useSafeAreaInsets();
@@ -208,7 +223,7 @@ export default function Inscribirse() {
   const generoEfectivo = (user?.genero || datos.genero) as '' | 'MASCULINO' | 'FEMENINO';
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}><ChevronLeft size={24} color={colors.white} /></TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>Inscribirme</Text>
@@ -284,12 +299,12 @@ export default function Inscribirse() {
           // ─── Wizard 3 pasos ───
           <View>
             {/* Indicador de pasos */}
-            <View style={styles.steps}>
-              {[{ n: 1, t: 'Pareja' }, { n: 2, t: 'Categoría' }, { n: 3, t: 'Confirmar' }].map((s) => (
-                <View key={s.n} style={[styles.stepPill, step >= s.n && styles.stepPillOn]}>
-                  <Text style={[styles.stepText, step >= s.n && styles.stepTextOn]}>{s.t}</Text>
-                </View>
-              ))}
+            <View style={styles.stepsRow}>
+              <StepCol n={1} label="Pareja" step={step} />
+              <View style={[styles.stepLine, step > 1 && styles.stepLineOn]} />
+              <StepCol n={2} label="Categoría" step={step} />
+              <View style={[styles.stepLine, step > 2 && styles.stepLineOn]} />
+              <StepCol n={3} label="Confirmar" step={step} />
             </View>
 
             {step === 1 && (
@@ -481,8 +496,8 @@ export default function Inscribirse() {
       {/* Barra de navegación inferior del wizard */}
       {!perfilIncompleto && !success && (
         <View style={[styles.navBar, { paddingBottom: insets.bottom || spacing.md }]}>
-          <TouchableOpacity onPress={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}>
-            <Text style={[styles.navBack, step === 1 && styles.navDisabled]}>Anterior</Text>
+          <TouchableOpacity style={[styles.navBackBtn, step === 1 && styles.navDisabled]} onPress={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1} activeOpacity={0.8}>
+            <Text style={styles.navBackText}>Anterior</Text>
           </TouchableOpacity>
           {step < 3 ? (
             <TouchableOpacity
@@ -546,16 +561,22 @@ const styles = StyleSheet.create({
   chipOn: { borderColor: colors.primary, backgroundColor: 'rgba(223,37,49,0.12)' },
   chipText: { color: colors.gray400, fontSize: 13, fontWeight: '600' },
   chipTextOn: { color: colors.white },
-  // Steps
-  steps: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
-  stepPill: { flex: 1, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
-  stepPillOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  stepText: { color: colors.gray500, fontSize: 12, fontWeight: '700' },
-  stepTextOn: { color: colors.white },
+  // Steps (numerado con conectores)
+  stepsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg, paddingHorizontal: 4 },
+  stepCol: { alignItems: 'center', gap: 5, width: 72 },
+  stepCircle: { width: 30, height: 30, borderRadius: 15, backgroundColor: ELEVADO, borderWidth: 1, borderColor: '#2f3947', alignItems: 'center', justifyContent: 'center' },
+  stepCircleOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  stepNum: { color: colors.gray500, fontSize: 13, fontWeight: '700' },
+  stepNumOn: { color: colors.white },
+  stepLabel: { color: colors.gray500, fontSize: 11 },
+  stepLabelOn: { color: colors.white, fontWeight: '600' },
+  stepLine: { flex: 1, height: 2, backgroundColor: '#22303f', marginBottom: 18 },
+  stepLineOn: { backgroundColor: colors.primary },
   // Player cards
   playerCard: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md - 4,
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md - 2,
+    backgroundColor: ELEVADO, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: spacing.md,
+    shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
   },
   avatarSm: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
   avatarSmText: { color: colors.white, fontWeight: '800', fontSize: 14 },
@@ -589,7 +610,10 @@ const styles = StyleSheet.create({
   link: { color: colors.primary, fontWeight: '700', fontSize: 14 },
   // Categorías
   emptyCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, alignItems: 'center' },
-  catRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm },
+  catRow: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: ELEVADO, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: spacing.md, marginBottom: spacing.sm,
+    shadowColor: '#000', shadowOpacity: 0.32, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 4,
+  },
   catRowOn: { borderColor: colors.primary, backgroundColor: 'rgba(223,37,49,0.10)' },
   catRowOff: { opacity: 0.7 },
   catTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -605,7 +629,10 @@ const styles = StyleSheet.create({
   badgeYellow: { backgroundColor: 'rgba(245,158,11,0.14)' },
   badgeYellowText: { color: colors.amber500, fontSize: 11, fontWeight: '600', flexShrink: 1 },
   // Summary
-  summary: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
+  summary: {
+    backgroundColor: ELEVADO, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: spacing.md,
+    shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+  },
   summaryHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md - 4 },
   summaryFlyer: { width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.dark100 },
   summaryFlyerPh: { alignItems: 'center', justifyContent: 'center' },
@@ -618,14 +645,15 @@ const styles = StyleSheet.create({
   consentText: { flex: 1, color: colors.gray400, fontSize: 12, lineHeight: 18 },
   // Nav bar
   navBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card,
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    paddingHorizontal: spacing.lg, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: '#11151d',
   },
-  navBack: { color: colors.gray400, fontSize: 15, fontWeight: '600' },
-  navDisabled: { opacity: 0.3 },
-  navNext: { backgroundColor: colors.primary, borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md - 2, minWidth: 120, alignItems: 'center' },
+  navBackBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md - 1, borderRadius: 14, backgroundColor: ELEVADO, borderWidth: 1, borderColor: colors.border },
+  navBackText: { color: colors.gray400, fontSize: 15, fontWeight: '600' },
+  navDisabled: { opacity: 0.4 },
+  navNext: { flex: 2, backgroundColor: colors.primary, borderRadius: 14, paddingVertical: spacing.md - 1, alignItems: 'center' },
   navNextOff: { opacity: 0.4 },
-  navNextText: { color: colors.white, fontWeight: '800', fontSize: 15 },
+  navNextText: { color: colors.white, fontWeight: '700', fontSize: 15 },
   // Misc
   errorBox: { backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: colors.red500, borderRadius: radius.md, padding: spacing.md - 2, marginBottom: spacing.md },
   errorText: { color: '#fca5a5', fontSize: 14 },
