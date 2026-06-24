@@ -50,13 +50,6 @@ function hace(fechaISO: string): string {
   return `hace ${Math.floor(dias / 7)} sem`;
 }
 
-function saludo(): string {
-  const h = new Date().getHours();
-  if (h < 12) return '¡Buenos días';
-  if (h < 19) return '¡Buenas tardes';
-  return '¡Buenas noches';
-}
-
 function StatBig({ icon, tint, value, label }: { icon: React.ReactNode; tint: string; value: string | number; label: string }) {
   return (
     <View style={styles.statBig}>
@@ -286,9 +279,10 @@ export default function HomeTab() {
   const feedItems = feedQ.data ?? [];
   const cargando = agendaQ.isLoading || feedQ.isLoading;
 
+  const bienvenida = user?.genero === 'FEMENINO' ? 'Bienvenida' : 'Bienvenido';
   const cat = perfilQ.data?.categoria?.nombre;
   const pos = perfilQ.data?.ranking?.[0]?.posicion;
-  const terceraLinea = [cat, pos ? `Ranking #${pos}` : null].filter(Boolean).join(' · ') || 'Bienvenido a FairPadel';
+  const terceraLinea = [cat, pos ? `Ranking #${pos}` : null].filter(Boolean).join(' · ') || 'A jugar al pádel';
 
   return (
     <>
@@ -321,7 +315,7 @@ export default function HomeTab() {
             )}
           </TouchableOpacity>
           <View style={styles.heroTextWrap}>
-            <Text style={styles.heroGreeting}>{saludo()},</Text>
+            <Text style={styles.heroGreeting}>{bienvenida},</Text>
             <Text style={styles.heroName} numberOfLines={1}>{user?.nombre} {user?.apellido}!</Text>
             <Text style={styles.heroThird} numberOfLines={1}>{terceraLinea}</Text>
           </View>
