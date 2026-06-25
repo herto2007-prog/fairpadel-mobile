@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  View, Text, ScrollView, Image, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, Linking, StyleSheet,
+  View, Text, ScrollView, Image, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, Linking, Alert, StyleSheet,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +9,7 @@ import Svg, { Polyline, Circle } from 'react-native-svg';
 import {
   ChevronLeft, Shield, MapPin, Calendar, Trophy, Activity, Star, Flame, Target, Award,
   TrendingUp, UserPlus, UserCheck, AlertCircle, AtSign, Link2, Handshake, Swords,
-  Medal, LayoutGrid, X,
+  Medal, LayoutGrid, X, Trash2,
 } from 'lucide-react-native';
 import { perfilService, NivelLogro } from '../../src/services/perfilService';
 import { socialService } from '../../src/services/socialService';
@@ -77,12 +77,27 @@ function Sparkline({ valores }: { valores: number[] }) {
   );
 }
 
-function PostModal({ post, autorNombre, onClose }: { post: PostJugador | null; autorNombre: string; onClose: () => void }) {
+function PostModal({ post, onClose, onDeleted }: { post: PostJugador | null; onClose: () => void; onDeleted: (id: string) => void }) {
   const [liked, setLiked] = useState(false);
   const [count, setCount] = useState(0);
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (post) { setLiked(post.yaReaccione); setCount(post.reaccionesCount); } }, [post]);
   if (!post) return null;
+  const borrar = () => {
+    Alert.alert('Borrar publicación', '¿Seguro que querés borrar esta publicación? No se puede deshacer.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Borrar',
+        style: 'destructive',
+        onPress: async () => {
+          const pid = post.id;
+          onDeleted(pid);
+          onClose();
+          try { await postService.eliminar(pid); } catch { /* el refetch del padre corrige */ }
+        },
+      },
+    ]);
+  };
   const toggle = async () => {
     if (busy) return;
     setBusy(true);
@@ -107,6 +122,11 @@ function PostModal({ post, autorNombre, onClose }: { post: PostJugador | null; a
               <Text style={[styles.pmLikeText, liked && { color: colors.primary }]}>Me gusta</Text>
             </TouchableOpacity>
             {count > 0 ? <Text style={styles.pmCount}>{count}</Text> : null}
+            {post.esDueno ? (
+              <TouchableOpacity style={styles.pmDel} onPress={borrar} activeOpacity={0.7}>
+                <Trash2 size={18} color="#ff8a8a" /><Text style={styles.pmDelText}>Borrar</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       </View>
@@ -380,7 +400,11 @@ export default function JugadorPerfil() {
         )}
       </ScrollView>
 
-      <PostModal post={postSel} autorNombre={perfil ? `${perfil.nombre} ${perfil.apellido}` : ''} onClose={() => setPostSel(null)} />
+      <PostModal
+        post={postSel}
+        onClose={() => setPostSel(null)}
+        onDeleted={(pid) => qc.setQueryData<PostJugador[]>(['posts-jugador', id], (prev) => (prev ?? []).filter((p) => p.id !== pid))}
+      />
     </View>
   );
 }
@@ -472,4 +496,6 @@ const styles = StyleSheet.create({
   pmLike: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   pmLikeText: { color: colors.gray400, fontSize: 14, fontWeight: '600' },
   pmCount: { color: colors.gray400, fontSize: 14, fontWeight: '700' },
+  pmDel: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto' },
+  pmDelText: { color: '#ff8a8a', fontSize: 14, fontWeight: '600' },
 });

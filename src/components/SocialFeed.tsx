@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import {
-  View, Text, ScrollView, Image, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, StyleSheet,
+  View, Text, ScrollView, Image, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, Alert, StyleSheet,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient, QueryKey } from '@tanstack/react-query';
-import { Trophy, Sparkles, UserPlus, Activity, ChevronRight, X } from 'lucide-react-native';
+import { Trophy, Sparkles, UserPlus, Activity, ChevronRight, X, Trash2 } from 'lucide-react-native';
 import { jugadorService, FeedItem } from '../services/jugadorService';
+import { postService } from '../services/postService';
 import { PalaHeart } from './icons/PalaHeart';
 import { colors, spacing, radius } from '../lib/theme';
 
@@ -23,7 +24,7 @@ function hace(fechaISO: string): string {
   return `hace ${Math.floor(dias / 7)} sem`;
 }
 
-function FeedRow({ item, onToggle, onVerQuienes }: { item: FeedItem; onToggle: () => void; onVerQuienes: () => void }) {
+function FeedRow({ item, onToggle, onVerQuienes, onDelete }: { item: FeedItem; onToggle: () => void; onVerQuienes: () => void; onDelete: (item: FeedItem) => void }) {
   const count = item.reaccionesCount ?? 0;
 
   const reaccionBar = item.reaccionable ? (
@@ -45,17 +46,24 @@ function FeedRow({ item, onToggle, onVerQuienes }: { item: FeedItem; onToggle: (
     const ini = `${item.autorNombre?.[0] ?? ''}`.toUpperCase();
     return (
       <View style={styles.feedCard}>
-        <TouchableOpacity style={styles.postAuthor} activeOpacity={0.8} onPress={() => item.autorId && router.push(`/jugador/${item.autorId}`)}>
-          {item.autorFotoUrl ? (
-            <Image source={{ uri: item.autorFotoUrl }} style={styles.postAvatar} />
-          ) : (
-            <View style={[styles.postAvatar, styles.postAvatarFallback]}><Text style={styles.postIni}>{ini}</Text></View>
-          )}
-          <View style={{ flex: 1 }}>
-            <Text style={styles.postAuthorName} numberOfLines={1}>{item.autorNombre || item.titulo}</Text>
-            <Text style={styles.feedTime}>{hace(item.fecha)}</Text>
-          </View>
-        </TouchableOpacity>
+        <View style={styles.postHeader}>
+          <TouchableOpacity style={styles.postAuthor} activeOpacity={0.8} onPress={() => item.autorId && router.push(`/jugador/${item.autorId}`)}>
+            {item.autorFotoUrl ? (
+              <Image source={{ uri: item.autorFotoUrl }} style={styles.postAvatar} />
+            ) : (
+              <View style={[styles.postAvatar, styles.postAvatarFallback]}><Text style={styles.postIni}>{ini}</Text></View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.postAuthorName} numberOfLines={1}>{item.autorNombre || item.titulo}</Text>
+              <Text style={styles.feedTime}>{hace(item.fecha)}</Text>
+            </View>
+          </TouchableOpacity>
+          {item.esDueno ? (
+            <TouchableOpacity onPress={() => onDelete(item)} hitSlop={8} style={styles.postDel} activeOpacity={0.7}>
+              <Trash2 size={18} color={colors.gray500} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
         {item.detalle ? <Text style={styles.postCaption}>{item.detalle}</Text> : null}
         {item.fotoUrl ? <Image source={{ uri: item.fotoUrl }} style={styles.postFoto} resizeMode="cover" /> : null}
         {reaccionBar}
@@ -135,6 +143,21 @@ export function SocialFeed({ queryKey, fetchFn }: { queryKey: QueryKey; fetchFn:
     qc.setQueryData<FeedItem[]>(queryKey, (prev) => (prev ?? []).map((it) => (it.id === id ? { ...it, ...patch } : it)));
   };
 
+  const eliminarPost = (item: FeedItem) => {
+    Alert.alert('Borrar publicación', '¿Seguro que querés borrar esta publicación? No se puede deshacer.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Borrar',
+        style: 'destructive',
+        onPress: async () => {
+          const pubId = item.id.startsWith('p-') ? item.id.slice(2) : item.id;
+          qc.setQueryData<FeedItem[]>(queryKey, (prev) => (prev ?? []).filter((it) => it.id !== item.id));
+          try { await postService.eliminar(pubId); } catch { feedQ.refetch(); }
+        },
+      },
+    ]);
+  };
+
   const toggleReaccion = async (item: FeedItem) => {
     const queLike = !item.yaReaccione;
     const base = item.reaccionesCount ?? 0;
@@ -162,7 +185,7 @@ export function SocialFeed({ queryKey, fetchFn }: { queryKey: QueryKey; fetchFn:
           {items.length > 0 ? (
             <View style={{ gap: spacing.sm }}>
               {items.map((it) => (
-                <FeedRow key={it.id} item={it} onToggle={() => toggleReaccion(it)} onVerQuienes={() => setModalItem(it)} />
+                <FeedRow key={it.id} item={it} onToggle={() => toggleReaccion(it)} onVerQuienes={() => setModalItem(it)} onDelete={eliminarPost} />
               ))}
             </View>
           ) : (
@@ -188,7 +211,9 @@ const styles = StyleSheet.create({
   likeText: { color: colors.gray400, fontSize: 13, fontWeight: '600' },
   likeTextOn: { color: colors.primary },
   count: { color: colors.gray400, fontSize: 13, fontWeight: '700' },
-  postAuthor: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  postHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  postAuthor: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  postDel: { padding: 4 },
   postAvatar: { width: 40, height: 40, borderRadius: 20 },
   postAvatarFallback: { backgroundColor: colors.dark200, alignItems: 'center', justifyContent: 'center' },
   postIni: { color: colors.white, fontSize: 15, fontWeight: '800' },
