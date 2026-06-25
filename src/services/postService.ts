@@ -1,6 +1,23 @@
 import { api } from './api';
 
+export interface PostJugador {
+  id: string;
+  feedItemId: string;
+  fotoUrl: string | null;
+  contenido: string;
+  fecha: string;
+  reaccionesCount: number;
+  yaReaccione: boolean;
+  esDueno: boolean;
+}
+
 export const postService = {
+  /** GET /jugador/posts/usuario/:userId — publicaciones de un jugador (para su ficha) */
+  getDeUsuario: async (userId: string): Promise<PostJugador[]> => {
+    const res = await api.get(`/jugador/posts/usuario/${userId}`);
+    return res.data?.data ?? [];
+  },
+
   /** POST /uploads/image — sube una foto a Cloudinary, devuelve url + publicId */
   subirFoto: async (uri: string): Promise<{ url: string; publicId?: string }> => {
     const form = new FormData();

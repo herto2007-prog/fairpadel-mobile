@@ -58,6 +58,20 @@ export const socialService = {
     return res.data;
   },
 
+  /** GET /users/:id/relacion — { siguiendo, teSigue } (chip "Te sigue") */
+  getRelacion: async (usuarioId: string): Promise<{ siguiendo: boolean; teSigue: boolean }> => {
+    const res = await api.get(`/users/${usuarioId}/relacion`);
+    return { siguiendo: !!res.data?.siguiendo, teSigue: !!res.data?.teSigue };
+  },
+
+  /** GET /users/:id/seguidores-en-comun — jugadores que yo sigo y siguen a :id */
+  getSeguidoresEnComun: async (
+    usuarioId: string,
+  ): Promise<{ total: number; muestra: { id: string; nombre: string; apellido: string; fotoUrl: string | null }[] }> => {
+    const res = await api.get(`/users/${usuarioId}/seguidores-en-comun`);
+    return { total: res.data?.total ?? 0, muestra: res.data?.muestra ?? [] };
+  },
+
   /** GET /users/:id/siguiendo — ¿el usuario autenticado sigue a :id? */
   checkSiguiendo: async (usuarioId: string): Promise<boolean> => {
     const res = await api.get(`/users/${usuarioId}/siguiendo`);

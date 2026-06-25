@@ -83,6 +83,17 @@ export interface PerfilJugador {
 
 export type PreferenciaNotif = 'EMAIL' | 'WHATSAPP' | 'AMBOS';
 
+export interface JugadorMini {
+  id: string;
+  nombre: string;
+  apellido: string;
+  fotoUrl?: string | null;
+}
+export interface CompanerosRivales {
+  companero: { jugador: JugadorMini; veces: number } | null;
+  rival: { jugador: JugadorMini; jugadas: number; perdidas: number } | null;
+}
+
 export const perfilService = {
   /** GET /users/profile/me — perfil del jugador autenticado (con datos privados) */
   getMiPerfil: async (): Promise<PerfilJugador> => {
@@ -94,6 +105,12 @@ export const perfilService = {
   getPerfilJugador: async (userId: string): Promise<PerfilJugador> => {
     const res = await api.get(`/users/profile/${userId}`);
     return res.data.data;
+  },
+
+  /** GET /jugador/:id/companeros-rivales — compañero más frecuente + rival más duro */
+  getCompanerosRivales: async (userId: string): Promise<CompanerosRivales> => {
+    const res = await api.get(`/jugador/${userId}/companeros-rivales`);
+    return res.data?.data ?? { companero: null, rival: null };
   },
 
   /** PUT /users/profile — actualiza datos de texto del perfil */
